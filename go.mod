@@ -3,8 +3,8 @@ module github.com/guhcostan/app-cleaner
 go 1.26
 
 require (
-	github.com/wailsapp/wails/v2 v2.11.0
-	howett.net/plist v1.0.1
+	github.com/wailsapp/wails/v2 v2.13.0
+	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9
 )
 
 require (
