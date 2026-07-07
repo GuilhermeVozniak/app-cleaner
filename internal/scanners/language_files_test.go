@@ -29,6 +29,15 @@ func TestKeepLanguageSet(t *testing.T) {
 	if keep["fr"] || keep["it"] {
 		t.Errorf("keep-set unexpectedly contains fr/it: %v", keep)
 	}
+	// Matching is case-sensitive (spec §5 / §10.6): the lowercase built-in
+	// "en" must not also imply "EN", and expanding "pt-BR" must not imply
+	// the all-caps variant "PT_BR".
+	if keep["EN"] {
+		t.Errorf("keep-set unexpectedly contains EN (case-insensitive match): %v", keep)
+	}
+	if keep["PT_BR"] {
+		t.Errorf("keep-set unexpectedly contains PT_BR (case-insensitive match): %v", keep)
+	}
 }
 
 func TestLanguageFilesScanner(t *testing.T) {
@@ -90,5 +99,32 @@ func TestLanguageFilesScanner(t *testing.T) {
 	}
 	if result.TotalSize != sum {
 		t.Errorf("TotalSize = %d, want %d", result.TotalSize, sum)
+	}
+}
+
+// TestLanguageFilesScannerCaseSensitiveKeepLanguages proves KeepLanguages
+// matching is case-sensitive: an uppercase config entry must NOT keep a
+// lowercase on-disk .lproj directory of the "same" language (spec §5 /
+// §10.6). Uses its own temp dir/fixture (rather than reusing
+// TestLanguageFilesScanner's) to avoid two same-parent dirs differing only
+// by case, which macOS's case-insensitive filesystem can't represent.
+func TestLanguageFilesScannerCaseSensitiveKeepLanguages(t *testing.T) {
+	apps := t.TempDir()
+	res := filepath.Join(apps, "Slack.app", "Contents", "Resources")
+	lfMkFile(t, filepath.Join(res, "de.lproj", "Localizable.strings"), "strings for de")
+
+	s := newLanguageFilesScanner()
+	s.preferred = func(home string) []string { return nil }
+
+	cfg := config.Default()
+	cfg.KeepLanguages = []string{"DE"} // uppercase config vs. lowercase on-disk de.lproj
+
+	result := s.Scan(context.Background(), Options{Roots: Roots{Home: t.TempDir(), Applications: apps}, Cfg: cfg})
+	if result.Error != "" {
+		t.Fatalf("unexpected scan error: %q", result.Error)
+	}
+
+	if len(result.Items) != 1 || result.Items[0].Name != "Slack.app: de.lproj" {
+		t.Fatalf("got %v, want de.lproj swept (case mismatch means it is not in the keep-set)", result.Items)
 	}
 }
