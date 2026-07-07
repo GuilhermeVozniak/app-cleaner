@@ -11,3 +11,6 @@ frontend/dist/
 
 # OS
 .DS_Store
+
+# SDD scratch (ledger, briefs)
+.superpowers/
