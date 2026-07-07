@@ -54,7 +54,7 @@ app-cleaner/
 
 **Dependency rule:** `internal/*` packages never import Wails. `app.go` is the only file that touches the Wails runtime (events, dialogs, clipboard). Every engine entry point takes a `context.Context` (cancellation) and an optional progress callback `func(current, total int, item core.CleanableItem)` — invoked *before* processing each item, 1-based, mirroring the CLI contract.
 
-**Concurrency:** scanners run in parallel goroutines with a semaphore (default 4, config `concurrency` 1..16). Each scanner's failure is isolated: it reports `ScanResult.Error`, never aborts the batch. Deletion is sequential (progress-friendly, matches CLI).
+**Concurrency:** scanners run in parallel goroutines with a semaphore (default 4, config `concurrency` 1..16). Each scanner's failure is isolated: it reports `ScanResult.Error`, never aborts the batch ⚠ (deliberate change — the CLI silently dropped a crashed scanner from the summary; see §10). Deletion is sequential (progress-friendly, matches CLI).
 
 ## 4. Engine contracts (ported verbatim unless noted)
 
@@ -101,16 +101,16 @@ Exact parity with the CLI except rows marked ⚠ (deliberate changes, §10). Ful
 | `system-logs` | moderate | `~/Library/Logs` immediate children | ⚠ CLI also listed `/var/log`, which its own safety layer made undeletable (always `PROTECTED`); the port drops `/var/log` from scanning |
 | `temp-files` | safe | `/tmp` children + `/private/var/folders/*/*/T` children | expect EPERM on system-owned entries; silent-skip |
 | `trash` | safe | `~/.Trash` children | permanent delete; needs FDA to read |
-| `downloads` | risky | `~/Downloads`, non-recursive, mtime ≥ `downloadsDaysOld` (default 30) | file-selection UI |
+| `downloads` | risky | `~/Downloads`, non-recursive, age (now − mtime) ≥ `downloadsDaysOld` days (default 30) | file-selection UI |
 | `browser-cache` | safe | Chrome `~/Library/Caches/Google/Chrome`, Safari `~/Library/Caches/com.apple.Safari`, Firefox `~/Library/Caches/Firefox/Profiles`, Arc `~/Library/Caches/company.thebrowser.Browser` | one item per existing browser dir |
 | `dev-cache` | moderate | npm `~/.npm/_cacache`, Yarn `~/Library/Caches/Yarn`, pnpm `~/Library/pnpm/store`, pip `~/.cache/pip`, CocoaPods `~/Library/Caches/CocoaPods`, Gradle `~/.gradle/caches`, Cargo `~/.cargo/registry` (each if size>0); Xcode DerivedData per-project children; Xcode Archives (one item, if size>0) | |
 | `homebrew` | safe | `brew --cache` output, validated against allowlisted roots | brew binary only from `/opt/homebrew/bin`, `/usr/local/bin` (never $PATH); clean = `brew cleanup --prune=all` when cache root selected, else direct delete |
-| `docker` | safe | `docker system df` reclaimable rows (images, containers, local volumes, build cache) | docker binary allowlist; clean = `docker system prune -af` (no `--volumes`, intentional); ⚠ parse sizes as SI units (kB/MB/GB = 1000-based) — the CLI wrongly used 1024 |
+| `docker` | safe | `docker system df` reclaimable rows (images, containers, build cache) | docker binary allowlist; whole-category-only in the UI (rows informational, no per-row selection); clean = `docker system prune -af` (no `--volumes`, intentional); ⚠ parse sizes as SI units (kB/MB/GB = 1000-based) — the CLI wrongly used 1024; ⚠ `local volumes` row excluded — prune never frees it |
 | `ios-backups` | risky | `~/Library/Application Support/MobileSync/Backup` children | name `iOS Backup: <UDID[:8]>...` |
 | `mail-attachments` | risky | `~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads` children | |
-| `language-files` | risky | `/Applications/*.app/Contents/Resources/*.lproj` minus keep-list | ⚠ keep-list configurable in Settings; default = system's preferred languages + `en`, `Base` (CLI hardcoded en/pt) |
+| `language-files` | risky | `/Applications/*.app/Contents/Resources/*.lproj` minus keep-list | ⚠ keep-list = for each system preferred language tag: the tag verbatim, its `-`→`_` variant, and its base language; union `en`, `Base`, and config `keepLanguages`; case-sensitive match (CLI hardcoded en/pt) |
 | `large-files` | risky | `~/Downloads` + `~/Documents`, recursive depth ≤ 3, regular files ≥ `largeFilesMinSize` (default 500 MiB), dot-entries skipped | sorted size desc; file-selection UI |
-| `node-modules` | moderate | roots `~/Projects ~/Developer ~/Code ~/dev ~/workspace ~/repos`, depth ≤ 4: `node_modules` dirs where sibling `package.json` exists and project mtime ≥ 30d (`(Nd old)`), or no `package.json` (`(orphaned)`, any age, size>0) | never recurses into node_modules |
+| `node-modules` | moderate | roots `~/Projects ~/Developer ~/Code ~/dev ~/workspace ~/repos` + config `extraPaths`, depth ≤ 4: `node_modules` dirs where sibling `package.json` exists and project age (now − mtime) ≥ 30d (`(Nd old)`), or no `package.json` (`(orphaned)`, any age, size>0) | never recurses into node_modules |
 | `duplicates` | risky | `~/Downloads ~/Documents ~/Desktop`, depth ≤ 5, files ≥ 1 MiB: group by size → MD5 → sets keep newest, list older copies as `name (dup of newest)` | ⚠ add the partial-hash (first 1 MiB) pre-filter the CLI defined but never wired up |
 | `launch-agents` | moderate | `~/Library/LaunchAgents/*.plist` whose `Program`/`ProgramArguments[0]` points to a non-existent absolute path (system-binary prefixes exempt) | ⚠ parse plists properly with `howett.net/plist` (binary + XML) instead of the CLI's regex-on-text; clean still deletes the plist only |
 
@@ -135,17 +135,17 @@ Shared result: `MaintenanceResult { Success bool; Message string; Error string; 
 | Free purgeable | `/usr/sbin/purge` | 60 s | ⚠ try unprivileged **first** (usually works), elevate only on permission failure — CLI tried sudo first |
 | Time Machine snapshots | `/usr/bin/tmutil listlocalsnapshotdates` → per-date `deletelocalsnapshots <d>`; dates strictly `^\d{4}-\d{2}-\d{2}-\d{6}$` | 30 s list / 60 s per delete | list unprivileged; delete admin. Sequential; per-date errors collected; partial success = success with `X/Y (N error(s))` |
 
-**⚠ Elevation strategy:** `sudo -n` is useless from a .app. Admin tasks run through `osascript -e 'do shell script "..." with administrator privileges'` (native macOS password prompt), commands built only from the fixed strings + regex-validated dates above. `RequiresAdmin` in the result drives the UI ("Requires administrator" state before the prompt).
+**⚠ Elevation strategy:** `sudo -n` is useless from a .app. Admin tasks run through `osascript -e 'do shell script "..." with administrator privileges'` (native macOS password prompt), commands built only from the fixed strings + regex-validated dates above. `RequiresAdmin` in the result drives the UI ("Requires administrator" state before the prompt). Time Machine deletion runs as **one** elevated invocation: a single `do shell script` loops over the pre-validated dates and prints one status line per date to stdout (parsed for per-date progress/errors) — exactly one password prompt. Total failure (0 deleted) → `Success=false` with the first error; partial success keeps the CLI's `Deleted X/Y … (N error(s))` message shape.
 
 ## 8. Backup / Undo (`internal/backup`)
 
 CLI mechanism ported, relocated for a GUI app:
 
 - Session dir: `~/Library/Application Support/AppCleaner/Backups/<ISO-timestamp with : . → ->/`
-- Backup = `os.Rename` (move) of each item into the session dir under `HOME/<path relative to home>` (literal `HOME` segment, first-occurrence replacement — CLI-compatible layout). ⚠ On `EXDEV` (cross-volume, e.g. items on another APFS volume) fall back to permanent delete for that item and record it as *not backed up* — the CLI just failed silently.
+- Backup = `os.Rename` (move) of each item into the session dir under `HOME/<path relative to home>` (literal `HOME` segment, first-occurrence replacement — CLI-compatible layout). ⚠ On `EXDEV` (cross-volume, e.g. items on another APFS volume) fall back to permanent delete for that item and record it as *not backed up* — the CLI just failed silently. ⚠ Items whose path is **not under `$HOME`** (e.g. language-files under `/Applications`) are likewise never backed up — same fallback: permanent delete, recorded as not backed up.
 - Restore: validate the session dir resolves under the backups root; each restored file's target must land under `$HOME` (paths with `..` or non-`HOME/` prefixes are rejected per file).
 - Retention: ⚠ honor `backupRetentionDays` from config (default 7) — the CLI hardcoded 7 and ignored its own config field. Cleanup runs on app launch and from the Backups view.
-- Defaults: backup ON for moderate + risky categories, OFF for safe ones (per-clean toggle in the confirm modal). Items cleaned via `brew cleanup` / `docker prune` (virtual items) are never backed up.
+- Defaults: the confirm modal's backup toggle is **global for the batch**, defaulting to on when config `backupByDefault` is set and any selected category is moderate or risky. Items cleaned via `brew cleanup` / `docker prune` (virtual items) and non-`$HOME` items are never backed up.
 
 ## 9. Config (`internal/config`)
 
@@ -164,7 +164,7 @@ CLI mechanism ported, relocated for a GUI app:
 }
 ```
 
-⚠ Category-id validation includes all 16 ids (the CLI's list omitted `launch-agents`). No CLI-era `~/.maccleanerrc` migration — this is a new app.
+Both `extraPaths` arrays extend the node-modules scanner's search roots (`projects` = additional project directories to walk); nonexistent paths are skipped silently. No CLI-era `~/.maccleanerrc` migration — this is a new app at a new, GUI-conventional path.
 
 ## 10. Deliberate changes from the CLI (consolidated)
 
@@ -177,9 +177,12 @@ CLI mechanism ported, relocated for a GUI app:
 7. Duplicates: partial-hash pre-filter before full MD5.
 8. Plists (launch agents, bundle IDs) parsed with a real plist library (binary-safe), not regex.
 9. Uninstaller: running-app check added; related-path freed-space measured before deletion (CLI bug).
-10. Backup honors `backupRetentionDays`; `EXDEV` fallback made explicit; config validates all 16 category ids.
+10. Backup honors `backupRetentionDays`; `EXDEV` and non-`$HOME` no-backup fallbacks made explicit.
 11. Time Machine snapshots task exposed in the UI (implemented but undocumented in the CLI).
 12. FDA hint becomes a first-run permission screen + persistent sidebar indicator.
+13. Failed scanners surface as `ScanResult.Error` on their category card (the CLI silently dropped a crashed scanner from the summary).
+14. Docker `local volumes` excluded from results (the CLI listed it as reclaimable although `prune` without `--volumes` never frees it).
+15. Config + backups relocated to `~/Library/Application Support/AppCleaner/` (was `~/.maccleanerrc` / `~/.config/mac-cleaner-cli/` and `~/.mac-cleaner-cli/backup`).
 
 Everything else — paths, thresholds, filters, sorting, naming formats, error philosophy — is ported as-is.
 
@@ -198,7 +201,8 @@ CancelClean()
 ListApps() []AppInfo                      // uninstaller
 UninstallApps(names []string, dryRun bool) error
 IsAppRunning(path string) bool
-RunMaintenance(task string) MaintenanceResult   // "dns" | "purge" | "tm-snapshots"
+RunMaintenance(task string) MaintenanceResult   // "dns" | "purge" — synchronous (JS promise); explicit exception to the long-op rule
+StartTMSnapshotsClear() error / CancelMaintenance()  // streams maintenance:progress / maintenance:done
 GetConfig() / SaveConfig(c Config)
 ListBackups() []BackupInfo / RestoreBackup(path string) RestoreResult / DeleteBackup(path string)
 CheckFDA() *bool                          // tri-state: true/false/unknown
@@ -206,7 +210,9 @@ OpenFDASettings()                         // x-apple.systempreferences:com.apple
 RevealInFinder(path string) / CopyPath(path string)
 ```
 
-**Events (Go → JS):** `scan:progress {completed,total,categoryId,totalSize,itemCount,error}` (per scanner finish), `scan:done {summary}`, `clean:progress {current,total,categoryId,itemName}`, `clean:done {summary}`, `uninstall:progress`, `uninstall:done`, `backup:progress`. One scan and one clean may run at a time (guarded by mutex; second call returns an error).
+**Events (Go → JS):** `scan:progress {completed,total,categoryId,totalSize,itemCount,error}` (per scanner finish), `scan:done {summary, cancelled?, error?}`, `clean:progress {current,total,categoryId,itemName}`, `clean:done {summary, cancelled?, error?}`, `uninstall:progress {current,total,appName}`, `uninstall:done {uninstalled, freedSpace, errors, cancelled?, error?}`, `backup:progress {current,total,itemName}`, `maintenance:progress {done,total,date,error?}`, `maintenance:done {result}`. One scan and one clean may run at a time (guarded by mutex; second call returns an error).
+
+**Bridge types:** `DisplayRow` mirrors the CLI grouping contract (porting-notes → grouping.ts / checkbox.ts): `{type: "directory-header"|"file"|"expand-hint", directoryKey /*absolute dir path*/, displayName, path?, size?, name?, hiddenCount?, totalFilesInDir, selectable}`. `AppInfo {name, path, bundleId, appSize, relatedPaths: []{path,size}, totalSize, running}`. `BackupInfo {path, date, size}`. `RestoreResult {restored, failed, errors}`.
 
 **FDA probe:** attempt to read `~/Library/Safari`: readable → true; `EPERM`/`EACCES` → false; other (e.g. ENOENT) → unknown. Note the GUI app needs FDA granted to **App Cleaner itself** (not the terminal).
 
@@ -217,19 +223,19 @@ RevealInFinder(path string) / CopyPath(path string)
 **Views:**
 - **First Run / Permissions** — shown when FDA ≠ true: what FDA unlocks (Trash, Safari cache, Mail), button → `OpenFDASettings()`, re-check on window focus, "Continue without" allowed (sidebar keeps an amber indicator).
 - **Smart Scan (home)** — hero scan button → live progress (per-category rows completing with sizes) → results: category cards grouped by CategoryGroup, each with size bar (proportional to largest), safety badge (🟢 safe / 🟡 moderate / 🔴 risky), checkbox, item count. Safe+moderate pre-selected; risky categories collapsed under a "Risky" section, hidden unless `showRisky` or expanded manually, never pre-selected. Footer: total selected size + **Clean** button.
-- **Category detail** (drill-down, replaces the CLI file-picker) — item list sorted by size desc; for file-selection categories, directory grouping per the CLI contract: groups ordered by largest-single-file desc, 5 visible files per group + "show N more" expander keyed by absolute dir path; select all / invert; per-row: name, middle-truncated path (~50 chars, `~` contraction), size, Reveal in Finder, Copy path.
+- **Category detail** (drill-down, replaces the CLI file-picker) — every filesystem-backed category supports per-item selection here (GUI equivalent of the CLI's `-f` always on); Docker is whole-category-only (rows informational). Items sorted by size desc; categories flagged `SupportsFileSelection` additionally get directory grouping per the CLI contract: groups ordered by largest-single-file desc, 5 visible files per group + "show N more" expander keyed by absolute dir path; select all / invert; per-row: name, middle-truncated path (~50 chars, `~` contraction), size, Reveal in Finder, Copy path.
 - **Clean confirm modal** — items count, space to free, backup toggle (default per §8), dry-run toggle; risky items called out with their safety notes. Then progress (per-item name streaming) → results panel: freed space, per-category ✓/✗ rows, errno breakdown; EPERM/EACCES-heavy → inline FDA call-to-action.
 - **Uninstaller** — app list (icon, name, bundle + related sizes, "+N related" chip) sorted by total desc; selecting shows related paths tree; running apps flagged and blocked until quit; confirm modal → progress → results.
 - **Maintenance** — three cards (Flush DNS, Free Purgeable Space, Clear Time Machine Snapshots) with description, admin badge where relevant, run button with inline result/error.
 - **Backups** — sessions listed newest-first (date, size), Restore / Delete per session, retention note.
 - **Settings** — thresholds (downloads age, large-file min size), backup defaults + retention, concurrency, show-risky default, language keep-list, extra scan roots for node-modules/projects.
 
-**State flow:** views call bound methods via generated bindings; zustand stores subscribe to Wails events and hold scan/clean/uninstall state; components render from stores only. All sizes formatted base-1024 with one decimal (`formatSize`, CLI-compatible).
+**State flow:** views call bound methods via generated bindings; zustand stores subscribe to Wails events and hold scan/clean/uninstall state; components render from stores only. All sizes formatted base-1024 — 0 decimals for bytes, one decimal above (`formatSize`, CLI-compatible).
 
 ## 13. Error handling
 
 - Scan: per-scanner `Error` string rendered as a warning row on its category card; batch never aborts; a scanner returning 0 items with no error simply doesn't render.
-- Clean: aggregate errno breakdown per category (§4.2); `PROTECTED` rendered distinctly ("blocked for safety"); ENOENT silently counts as cleaned (already gone).
+- Clean: aggregate errno breakdown per category (§4.2); `PROTECTED` rendered distinctly ("blocked for safety"); `ENOENT` stays a failure code in the breakdown like the CLI (item vanished between scan and clean — no freed-space credit).
 - Maintenance: `Success=false` + `RequiresAdmin` → UI offers the admin prompt path; other errors shown verbatim.
 - Engine panics: recovered at the app.go boundary, surfaced as a toast + `scan:done`/`clean:done` with error so the UI never hangs.
 - Cancellation: context-based; partial results are reported (`cancelled: true` flag in done events).
@@ -243,12 +249,20 @@ RevealInFinder(path string) / CopyPath(path string)
 
 ## 15. Packaging & distribution
 
-- `wails build -platform darwin/universal` → `build/bin/App Cleaner.app`; bundle ID `com.guhcostan.appcleaner`; app icon generated from a new asset (`build/appicon.png`).
+- `wails build -platform darwin/universal` → `build/bin/App Cleaner.app`; bundle ID `com.guhcostan.appcleaner`; app icon generated during implementation (`build/appicon.png`, produced as part of the build setup).
 - Info.plist: `LSMinimumSystemVersion` 11.0, `NSHumanReadableCopyright`, category `public.app-category.utilities`.
 - README with build instructions (`wails doctor`, `wails dev`, `wails build`) and a "Signing & notarization" follow-up section (`codesign` + `notarytool` outline).
 - Git: this repo is the product repo; `mac-cleaner-cli/` reference clone stays untracked (.gitignore).
 
-## 16. References
+## 16. Suggested implementation milestones
+
+1. Engine foundations: `core`, `fsx`, `config` (+ tests)
+2. The 16 scanners + parallel runner (+ tests)
+3. `backup`, `uninstall`, `maintenance`, `fda` (+ tests)
+4. Wails bridge: `app.go`, events, generated bindings
+5. Frontend views + styling + packaging (`wails build`)
+
+## 17. References
 
 - `docs/reference/porting-notes.json` — normative CLI behavior extraction (scanners / commands / utils / maintenance, with porting notes per module)
 - `mac-cleaner-cli/` — original source (untracked reference clone)
