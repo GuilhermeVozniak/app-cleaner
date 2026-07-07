@@ -1,0 +1,13 @@
+# reference clone of the original CLI (not part of this repo)
+mac-cleaner-cli/
+
+# Go / Wails
+build/bin/
+*.log
+
+# Node
+node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
