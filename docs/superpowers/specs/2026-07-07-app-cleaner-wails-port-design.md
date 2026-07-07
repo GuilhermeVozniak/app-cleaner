@@ -110,7 +110,7 @@ Exact parity with the CLI except rows marked ⚠ (deliberate changes, §10). Ful
 | `mail-attachments` | risky | `~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads` children | |
 | `language-files` | risky | `/Applications/*.app/Contents/Resources/*.lproj` minus keep-list | ⚠ keep-list = for each system preferred language tag: the tag verbatim, its `-`→`_` variant, and its base language; union `en`, `Base`, and config `keepLanguages`; case-sensitive match (CLI hardcoded en/pt) |
 | `large-files` | risky | `~/Downloads` + `~/Documents`, recursive depth ≤ 3, regular files ≥ `largeFilesMinSize` (default 500 MiB), dot-entries skipped | sorted size desc; file-selection UI |
-| `node-modules` | moderate | roots `~/Projects ~/Developer ~/Code ~/dev ~/workspace ~/repos` + config `extraPaths`, depth ≤ 4: `node_modules` dirs where sibling `package.json` exists and project age (now − mtime) ≥ 30d (`(Nd old)`), or no `package.json` (`(orphaned)`, any age, size>0) | never recurses into node_modules |
+| `node-modules` | moderate | roots `~/Projects ~/Developer ~/Code ~/dev ~/workspace ~/repos` + config `extraPaths`, depth ≤ 4: `node_modules` dirs where sibling `package.json` exists and project age (now − mtime) ≥ `downloadsDaysOld` days (default 30 — the CLI shares one age knob with downloads) (`(Nd old)`), or no `package.json` (`(orphaned)`, any age, size>0) | never recurses into node_modules |
 | `duplicates` | risky | `~/Downloads ~/Documents ~/Desktop`, depth ≤ 5, files ≥ 1 MiB: group by size → MD5 → sets keep newest, list older copies as `name (dup of newest)` | ⚠ add the partial-hash (first 1 MiB) pre-filter the CLI defined but never wired up |
 | `launch-agents` | moderate | `~/Library/LaunchAgents/*.plist` whose `Program`/`ProgramArguments[0]` points to a non-existent absolute path (system-binary prefixes exempt) | ⚠ parse plists properly with `howett.net/plist` (binary + XML) instead of the CLI's regex-on-text; clean still deletes the plist only |
 
@@ -118,7 +118,7 @@ Exact parity with the CLI except rows marked ⚠ (deliberate changes, §10). Ful
 
 Parity with the CLI plus two deliberate fixes:
 
-- **Discovery:** top-level `.app` bundles in `/Applications` and `~/Applications`; per-app total = bundle size + related paths sizes; sorted by total desc. App icons extracted for the UI (from `.icns` via `CFBundleIconFile`, converted once and cached).
+- **Discovery:** top-level `.app` bundles in `/Applications` and `~/Applications`; per-app total = bundle size + related paths sizes; sorted by total desc. App icons extracted lazily for the UI (bridge `GetAppIcon`: `CFBundleIconFile` → `.icns` → PNG via `/usr/bin/sips`, returned base64, cached per bundle; letter-avatar fallback in the UI).
 - **Bundle ID:** parse `Contents/Info.plist` (proper plist parser — handles binary plists the CLI's regex missed); must match `^[a-zA-Z][a-zA-Z0-9.-]*$`; fallback `appname` lowercased, spaces→`.`.
 - **Related paths:** the CLI's 11 `$HOME`-scoped templates (Application Support, Preferences ×2, Caches ×2, Logs, Saved Application State, WebKit, HTTPStorages, Containers, Group Containers glob) with the 3 name variations (verbatim / lowercase / whitespace-stripped); glob matching with all regex metachars escaped; every candidate must resolve under `$HOME` and pass `isProtectedPath`.
 - **⚠ Running-app check (new):** before uninstalling, check if the app is running (`pgrep -f` on bundle path / NSRunningApplication via `osascript`); if running, the UI requires quitting first.
@@ -135,7 +135,7 @@ Shared result: `MaintenanceResult { Success bool; Message string; Error string; 
 | Free purgeable | `/usr/sbin/purge` | 60 s | ⚠ try unprivileged **first** (usually works), elevate only on permission failure — CLI tried sudo first |
 | Time Machine snapshots | `/usr/bin/tmutil listlocalsnapshotdates` → per-date `deletelocalsnapshots <d>`; dates strictly `^\d{4}-\d{2}-\d{2}-\d{6}$` | 30 s list / 60 s per delete | list unprivileged; delete admin. Sequential; per-date errors collected; partial success = success with `X/Y (N error(s))` |
 
-**⚠ Elevation strategy:** `sudo -n` is useless from a .app. Admin tasks run through `osascript -e 'do shell script "..." with administrator privileges'` (native macOS password prompt), commands built only from the fixed strings + regex-validated dates above. `RequiresAdmin` in the result drives the UI ("Requires administrator" state before the prompt). Time Machine deletion runs as **one** elevated invocation: a single `do shell script` loops over the pre-validated dates and prints one status line per date to stdout (parsed for per-date progress/errors) — exactly one password prompt. Total failure (0 deleted) → `Success=false` with the first error; partial success keeps the CLI's `Deleted X/Y … (N error(s))` message shape.
+**⚠ Elevation strategy:** `sudo -n` is useless from a .app. Admin tasks run through `osascript -e 'do shell script "..." with administrator privileges'` (native macOS password prompt), commands built only from the fixed strings + regex-validated dates above. `RequiresAdmin` in the result drives the UI ("Requires administrator" state before the prompt). Time Machine deletion runs as **one** elevated invocation: a single `do shell script` loops over the pre-validated dates and prints one status line per date to stdout (parsed for per-date progress/errors) — exactly one password prompt. Total failure (0 deleted) → `Success=false` with the first error; partial success keeps the CLI's `Deleted X/Y … (N error(s))` message shape. Unprivileged Runner calls keep the CLI timeouts in the table above; elevated osascript calls use a 120 s budget, since the user must type a password before the script starts.
 
 ## 8. Backup / Undo (`internal/backup`)
 
@@ -199,7 +199,9 @@ GroupItems(id string, expand map[string]int) []DisplayRow  // §12 directory gro
 StartClean(sel map[string][]string, opts CleanOptions) error  // opts: DryRun, Backup
 CancelClean()
 ListApps() []AppInfo                      // uninstaller
-UninstallApps(names []string, dryRun bool) error
+StartUninstall(names []string, dryRun bool) error  // named like StartScan/StartClean
+GetAppIcon(path string) string                     // lazy base64 PNG via sips; "" on failure
+CleanOldBackups() int                              // retention sweep (also runs at launch)
 IsAppRunning(path string) bool
 RunMaintenance(task string) MaintenanceResult   // "dns" | "purge" — synchronous (JS promise); explicit exception to the long-op rule
 StartTMSnapshotsClear() error / CancelMaintenance()  // streams maintenance:progress / maintenance:done
@@ -210,7 +212,7 @@ OpenFDASettings()                         // x-apple.systempreferences:com.apple
 RevealInFinder(path string) / CopyPath(path string)
 ```
 
-**Events (Go → JS):** `scan:progress {completed,total,categoryId,totalSize,itemCount,error}` (per scanner finish), `scan:done {summary, cancelled?, error?}`, `clean:progress {current,total,categoryId,itemName}`, `clean:done {summary, cancelled?, error?}`, `uninstall:progress {current,total,appName}`, `uninstall:done {uninstalled, freedSpace, errors, cancelled?, error?}`, `backup:progress {current,total,itemName}`, `maintenance:progress {done,total,date,error?}`, `maintenance:done {result}`. One scan and one clean may run at a time (guarded by mutex; second call returns an error).
+**Events (Go → JS):** `scan:progress {completed,total,categoryId,totalSize,itemCount,error}` (per scanner finish), `scan:done {summary, cancelled?, error?}`, `clean:progress {current,total,categoryId,itemName}`, `clean:done {summary, notBackedUp, cancelled?, error?}`, `uninstall:progress {current,total,appName}`, `uninstall:done {uninstalled, freedSpace, errors, cancelled?, error?}`, `backup:progress {current,total,itemName}`, `maintenance:progress {done,total,date,error?}`, `maintenance:done {result}`. One scan and one clean may run at a time (guarded by mutex; second call returns an error).
 
 **Bridge types:** `DisplayRow` mirrors the CLI grouping contract (porting-notes → grouping.ts / checkbox.ts): `{type: "directory-header"|"file"|"expand-hint", directoryKey /*absolute dir path*/, displayName, path?, size?, name?, hiddenCount?, totalFilesInDir, selectable}`. `AppInfo {name, path, bundleId, appSize, relatedPaths: []{path,size}, totalSize, running}`. `BackupInfo {path, date, size}`. `RestoreResult {restored, failed, errors}`.
 
@@ -243,7 +245,7 @@ RevealInFinder(path string) / CopyPath(path string)
 ## 14. Testing
 
 - **Go unit tests** (primary): `fsx` (path safety table tests, TOCTOU/symlink behavior, errno mapping, recursive sizing, dry-run), each scanner against `t.TempDir()` fixtures (age/size filters, naming formats, keep-lists, orphan detection, duplicate sets keep-newest), `backup` (move layout, HOME mapping, restore validation, retention, EXDEV fallback path), `config` (bounds, invalid-field dropping), `uninstall` (bundle-id parsing incl. binary plist, template variations, glob escaping), `maintenance` (date-regex validation, result shaping — command execution mocked via an injected runner).
-- **Frontend:** `tsc --noEmit` + Vite production build in CI; component smoke tests (vitest + testing-library) for the scan store event handling and the confirm modal math.
+- **Frontend:** `tsc --noEmit` + Vite production build as local release gates (GitHub Actions CI is a post-v1 follow-up); component smoke tests (vitest + testing-library) for the scan store event handling and the confirm modal math.
 - **Integration smoke:** `wails build` must produce `App Cleaner.app`; `wails dev` manual pass over scan→select→dry-run→results.
 - Rule: tests never touch real user data — all FS tests run under temp dirs; external binaries behind interfaces with fakes.
 
