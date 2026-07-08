@@ -11,7 +11,6 @@ import (
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/config"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fda"
-	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fsx"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/scanners"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -102,10 +101,16 @@ func runInteractive(ctx context.Context, opts InteractiveOptions, deps interacti
 	}
 
 	fmt.Println("Scanning your Mac for cleanable files...")
-	summary := deps.scan(ctx, func(completed, total int, r core.ScanResult) {
-		fmt.Printf("\r[%d/%d] Scanning %s...", completed, total, r.Category.Name)
-	})
-	fmt.Println()
+	var onScanResult func(completed, total int, r core.ScanResult)
+	if !opts.NoProgress {
+		onScanResult = func(completed, total int, r core.ScanResult) {
+			fmt.Printf("\r[%d/%d] Scanning %s...", completed, total, r.Category.Name)
+		}
+	}
+	summary := deps.scan(ctx, onScanResult)
+	if !opts.NoProgress {
+		fmt.Println()
+	}
 
 	if summary.TotalSize == 0 {
 		fmt.Println("Your Mac is already clean! Nothing to remove.")
@@ -252,7 +257,7 @@ func finishInteractive(ctx context.Context, opts InteractiveOptions, deps intera
 		return nil, nil
 	}
 
-	return runInteractiveClean(ctx, deps, selectedResults, itemsByCategory)
+	return runInteractiveClean(ctx, opts, deps, selectedResults, itemsByCategory)
 }
 
 func filterResults(results []core.ScanResult, ids []core.CategoryID) []core.ScanResult {
@@ -274,46 +279,86 @@ func filterResults(results []core.ScanResult, ids []core.CategoryID) []core.Scan
 // summary on Ctrl-C (ctx canceled) rather than an error, matching the
 // engine's cancel semantics (in-flight item finishes, remaining untouched).
 // Named to avoid colliding with Task 5's cobra RunE `runClean` in package cmd.
-func runInteractiveClean(ctx context.Context, deps interactiveDeps, results []core.ScanResult, itemsByCategory map[core.CategoryID][]core.CleanableItem) (*core.CleanSummary, error) {
+//
+// Backup-routing orchestration below (splitNeverBackup/splitByBackup, both
+// defined in clean.go, same package cmd) mirrors apps/desktop/app.go's
+// runClean — the contract's one sanctioned engine-logic duplication. Actual
+// deletion is NEVER reimplemented here: every category's items are cleaned
+// through that category's own scanners.Scanner.Clean (docker/homebrew route
+// through their external tools; the rest through fsx via cleanWithFsx),
+// exactly like apps/cli/cmd/clean.go's cleanCategory and app.go's runClean.
+func runInteractiveClean(ctx context.Context, opts InteractiveOptions, deps interactiveDeps, results []core.ScanResult, itemsByCategory map[core.CategoryID][]core.CleanableItem) (*core.CleanSummary, error) {
+	remaining := itemsByCategory
+	movedByCat := map[core.CategoryID][]core.CleanableItem{}
+
+	if deps.cfg.BackupByDefault && deps.backupMgr != nil {
+		backupable, direct := splitNeverBackup(itemsByCategory)
+		var all []core.CleanableItem
+		for _, r := range results {
+			all = append(all, backupable[r.Category.ID]...)
+		}
+		var outcome backup.BackupOutcome
+		if len(all) > 0 {
+			var backupProgress core.ProgressFunc
+			if !opts.NoProgress {
+				backupProgress = func(current, total int, item core.CleanableItem) {
+					fmt.Printf("\r  backing up %d/%d", current, total)
+				}
+			}
+			outcome = deps.backupMgr.BackupItems(ctx, deps.home, all, backupProgress)
+			if !opts.NoProgress {
+				fmt.Println()
+			}
+		}
+		// Items neither in outcome.Moved nor outcome.NotBackedUp were never
+		// reached (Ctrl-C mid backup); splitByBackup correctly drops them from
+		// both maps below, so they are never credited as cleaned/freed.
+		movedByCat, remaining = splitByBackup(backupable, outcome.Moved, outcome.NotBackedUp)
+		for id, items := range direct {
+			remaining[id] = items
+		}
+	}
+
 	summary := core.CleanSummary{}
 	for _, r := range results {
-		items := itemsByCategory[r.Category.ID]
-		if len(items) == 0 {
+		items := remaining[r.Category.ID]
+		moved := movedByCat[r.Category.ID]
+		if len(items) == 0 && len(moved) == 0 {
 			continue
 		}
 		fmt.Printf("Cleaning %s...\n", r.Category.Name)
 
-		toDelete := items
-		if deps.cfg.BackupByDefault && deps.backupMgr != nil {
-			outcome := deps.backupMgr.BackupItems(ctx, deps.home, items, func(current, total int, item core.CleanableItem) {
-				fmt.Printf("\r  backing up %d/%d", current, total)
-			})
-			fmt.Println()
-			toDelete = itemsFromPaths(items, outcome.NotBackedUp) // only permanently delete items the backup step could not move
+		sc, ok := scanners.Get(r.Category.ID)
+		if !ok {
+			continue
 		}
-
-		out := fsx.RemoveItems(ctx, toDelete, false, func(current, total int, item core.CleanableItem) {
-			fmt.Printf("\r  %d/%d", current, total)
-		})
-		fmt.Println()
-
-		freedFromBackup := int64(0)
-		backedUpCount := len(items) - len(toDelete)
-		for _, it := range items {
-			if !containsPath(toDelete, it.Path) {
-				freedFromBackup += it.Size
+		res := core.CleanResult{Category: r.Category, Errors: []string{}}
+		if len(items) > 0 {
+			var cleanProgress core.ProgressFunc
+			if !opts.NoProgress {
+				cleanProgress = func(current, total int, item core.CleanableItem) {
+					fmt.Printf("\r  %d/%d", current, total)
+				}
+			}
+			res = sc.Clean(ctx, items, false, cleanProgress)
+			if res.Errors == nil {
+				res.Errors = []string{}
+			}
+			if !opts.NoProgress {
+				fmt.Println()
 			}
 		}
-		errs := fsx.AggregateFailures(out.Failures)
-		summary.Results = append(summary.Results, core.CleanResult{
-			Category:     r.Category,
-			CleanedItems: out.Cleaned + backedUpCount,
-			FreedSpace:   out.Freed + freedFromBackup,
-			Errors:       errs,
-		})
-		summary.TotalCleanedItems += out.Cleaned + backedUpCount
-		summary.TotalFreedSpace += out.Freed + freedFromBackup
-		summary.TotalErrors += len(errs)
+		// Items moved into the backup session are off their original location:
+		// credit them as cleaned/freed without touching them again.
+		for _, m := range moved {
+			res.CleanedItems++
+			res.FreedSpace += m.Size
+		}
+
+		summary.Results = append(summary.Results, res)
+		summary.TotalCleanedItems += res.CleanedItems
+		summary.TotalFreedSpace += res.FreedSpace
+		summary.TotalErrors += len(res.Errors)
 
 		if ctx.Err() != nil {
 			break // Ctrl-C: stop starting new categories, return partial summary
@@ -328,29 +373,6 @@ func runInteractiveClean(ctx context.Context, deps interactiveDeps, results []co
 	fdaHint := summary.TotalErrors > 0 && (granted == nil || !*granted)
 	printResults(summary, fdaHint)
 	return &summary, nil
-}
-
-func itemsFromPaths(all []core.CleanableItem, paths []string) []core.CleanableItem {
-	want := map[string]bool{}
-	for _, p := range paths {
-		want[p] = true
-	}
-	var out []core.CleanableItem
-	for _, it := range all {
-		if want[it.Path] {
-			out = append(out, it)
-		}
-	}
-	return out
-}
-
-func containsPath(items []core.CleanableItem, path string) bool {
-	for _, it := range items {
-		if it.Path == path {
-			return true
-		}
-	}
-	return false
 }
 
 // runConfirm is a minimal default-aware y/n prompt over stdin, matching
