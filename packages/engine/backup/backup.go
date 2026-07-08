@@ -149,7 +149,9 @@ func (m *Manager) resolveSession(sessionDir string) (string, error) {
 		return "", err
 	}
 	if !under(sd, root) {
-		return "", errors.New("Invalid backup directory: must be within the App Cleaner backups folder")
+		// Capitalized error text is intentional: matches the original CLI's
+		// user-facing string verbatim (porting parity, docs/reference/porting-notes.json).
+		return "", errors.New("Invalid backup directory: must be within the App Cleaner backups folder") //nolint:staticcheck
 	}
 	return sd, nil
 }
@@ -159,15 +161,19 @@ func (m *Manager) resolveSession(sessionDir string) (string, error) {
 // containment.
 func restoreTarget(rel, home string) (string, error) {
 	if !strings.HasPrefix(rel, "HOME"+string(filepath.Separator)) {
-		return "", fmt.Errorf("Skipping file outside HOME structure: %s", rel)
+		// Capitalized error text is intentional: matches the original CLI's
+		// user-facing string verbatim (porting parity, docs/reference/porting-notes.json).
+		return "", fmt.Errorf("Skipping file outside HOME structure: %s", rel) //nolint:staticcheck
 	}
 	if strings.Contains(rel, "..") {
-		return "", fmt.Errorf("Suspicious path pattern detected: %s", rel)
+		return "", fmt.Errorf("Suspicious path pattern detected: %s", rel) //nolint:staticcheck
 	}
 	target := filepath.Join(home, rel[len("HOME/"):])
 	abs, err := filepath.Abs(target)
 	if err != nil || !under(abs, home) {
-		return "", fmt.Errorf("Path traversal detected: %s resolves outside home directory", target)
+		// Capitalized error text is intentional: matches the original CLI's
+		// user-facing string verbatim (porting parity, docs/reference/porting-notes.json).
+		return "", fmt.Errorf("Path traversal detected: %s resolves outside home directory", target) //nolint:staticcheck
 	}
 	return target, nil
 }

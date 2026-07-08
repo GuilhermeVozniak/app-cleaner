@@ -17,8 +17,8 @@ import (
 // is invoked after each scanner finishes, serially under the runner's lock,
 // with completed = 1..total strictly increasing.
 func RunScans(ctx context.Context, ids []core.CategoryID, opts Options, concurrency int,
-	onResult func(completed, total int, r core.ScanResult)) core.ScanSummary {
-
+	onResult func(completed, total int, r core.ScanResult),
+) core.ScanSummary {
 	total := len(ids)
 	if total == 0 {
 		return core.ScanSummary{Results: []core.ScanResult{}}

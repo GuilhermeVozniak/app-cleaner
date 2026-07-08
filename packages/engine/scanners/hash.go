@@ -15,7 +15,7 @@ func fileMD5(path string, limit int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	h := md5.New()
 	var r io.Reader = f
