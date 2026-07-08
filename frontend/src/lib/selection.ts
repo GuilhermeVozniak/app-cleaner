@@ -42,3 +42,32 @@ export function invertSelection(allPaths: string[], sel: Selection | undefined):
   const current = sel ?? new Set<string>();
   return new Set(allPaths.filter((p) => !current.has(p)));
 }
+
+/**
+ * CLI file-picker parity: the 'd' key toggles every currently VISIBLE file in
+ * one directory group (a DisplayRow.directoryKey). `visiblePaths` must be the
+ * paths of the rows actually rendered for that group — files hidden behind an
+ * expand-hint are not included, so they are left untouched, exactly like the
+ * CLI's toggleDirectoryFiles (file-picker.ts). If every visible file in the
+ * group is already selected, they are all deselected; otherwise all selected.
+ * Other directory groups, and files outside `visiblePaths`, are never touched.
+ *
+ * Note: unlike the CLI (which keeps a separate `selectedCategories` set that
+ * directory-toggling deliberately never touches), this port has a single
+ * per-category Selection, so category membership here is simply whatever the
+ * resulting Set implies — there is no separate flag to preserve.
+ */
+export function toggleDirectory(
+  allPaths: string[],
+  sel: Selection | undefined,
+  visiblePaths: string[],
+): Selection {
+  const current = sel === 'all' ? new Set(allPaths) : new Set(sel ?? []);
+  const allVisibleSelected = visiblePaths.length > 0 && visiblePaths.every((p) => current.has(p));
+  if (allVisibleSelected) {
+    for (const p of visiblePaths) current.delete(p);
+  } else {
+    for (const p of visiblePaths) current.add(p);
+  }
+  return current;
+}

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import CategoryDetail from './CategoryDetail';
-import { bumpExpand, invertSelection, togglePath } from '../lib/selection';
+import { bumpExpand, invertSelection, toggleDirectory, togglePath } from '../lib/selection';
 import { contractHome } from '../lib/paths';
 import { middleTruncate } from '../lib/format';
 import { useScanStore } from '../stores/scanStore';
@@ -57,6 +57,43 @@ describe('selection math', () => {
     expect(togglePath(all, 'all', '/d/b')).toEqual(new Set(['/d/a', '/d/c']));
     expect(togglePath(all, new Set(['/d/a']), '/d/b')).toEqual(new Set(['/d/a', '/d/b']));
     expect(togglePath(all, new Set(['/d/a']), '/d/a')).toEqual(new Set());
+  });
+});
+
+describe("toggleDirectory ('d' key parity: toggle every visible file in one directory group)", () => {
+  it('selects all visible files in the current directory only', () => {
+    const allPaths = ['/test/dir1/file1.txt', '/test/dir1/file2.txt', '/test/dir2/file3.txt'];
+    const dir1Visible = ['/test/dir1/file1.txt', '/test/dir1/file2.txt'];
+
+    const result = toggleDirectory(allPaths, undefined, dir1Visible);
+
+    expect(result).toEqual(new Set(dir1Visible));
+    expect((result as Set<string>).has('/test/dir2/file3.txt')).toBe(false);
+  });
+
+  it('deselects all files in directory when toggled twice', () => {
+    const dir1Files = ['/test/dir1/file1.txt', '/test/dir1/file2.txt'];
+
+    const once = toggleDirectory(dir1Files, undefined, dir1Files);
+    expect(once).toEqual(new Set(dir1Files));
+
+    const twice = toggleDirectory(dir1Files, once, dir1Files);
+    expect(twice).toEqual(new Set());
+  });
+
+  it('only affects the current directory, not others', () => {
+    const allPaths = [
+      '/test/dir1/file1.txt',
+      '/test/dir1/file2.txt',
+      '/test/dir2/file3.txt',
+      '/test/dir2/file4.txt',
+    ];
+    const dir1Visible = ['/test/dir1/file1.txt', '/test/dir1/file2.txt'];
+    const initial = new Set(['/test/dir2/file3.txt', '/test/dir2/file4.txt']);
+
+    const result = toggleDirectory(allPaths, initial, dir1Visible);
+
+    expect(result).toEqual(new Set(allPaths));
   });
 });
 

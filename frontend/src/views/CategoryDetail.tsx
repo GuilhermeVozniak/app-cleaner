@@ -6,7 +6,7 @@ import ItemList from '../components/ItemList';
 import SafetyBadge from '../components/SafetyBadge';
 import { formatSize, middleTruncate } from '../lib/format';
 import { contractHome, homeDir } from '../lib/paths';
-import { bumpExpand, invertSelection, togglePath } from '../lib/selection';
+import { bumpExpand, invertSelection, toggleDirectory, togglePath } from '../lib/selection';
 import type { DisplayRow } from '../lib/types';
 import { useScanStore } from '../stores/scanStore';
 import { useUiStore } from '../stores/uiStore';
@@ -109,11 +109,25 @@ export default function CategoryDetail() {
         <ul className="flex-1 overflow-y-auto px-6 py-2">
           {rows.map((row, i) => {
             if (row.type === 'directory-header') {
+              const dirPaths = rows
+                .filter((r) => r.type === 'file' && r.directoryKey === row.directoryKey && r.path)
+                .map((r) => r.path as string);
+              const dirChecked = dirPaths.length > 0 && dirPaths.every(checked);
               return (
                 <li
                   key={`h-${row.directoryKey}`}
                   className="mt-3 flex items-baseline gap-2 px-2 py-1 text-xs font-semibold text-neutral-500 dark:text-neutral-400"
                 >
+                  <input
+                    type="checkbox"
+                    aria-label={`Select all in ${row.displayName}`}
+                    checked={dirChecked}
+                    disabled={dirPaths.length === 0}
+                    onChange={() =>
+                      setItemSelection(activeCategoryId, toggleDirectory(allPaths, sel, dirPaths))
+                    }
+                    className="h-3.5 w-3.5 accent-blue-600"
+                  />
                   {row.displayName}
                   <span className="font-normal">({row.totalFilesInDir})</span>
                 </li>
