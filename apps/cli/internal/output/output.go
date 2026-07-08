@@ -6,7 +6,11 @@
 // only produces the plain strings and JSON payloads to colorize/print.
 package output
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fsx"
+)
 
 // DryRunPrefix is the literal prefix the original CLI prints in cyan before
 // any line describing an action a --dry-run run would have taken
@@ -81,4 +85,14 @@ func TruncateName(name string, maxLength int) string {
 	first := string(baseRunes[:firstLen])
 	last := string(baseRunes[len(baseRunes)-lastLen:])
 	return first + ellipsis + last + ext
+}
+
+// ErrnoBreakdown re-exports fsx.AggregateFailures so every apps/cli command
+// formats errno breakdowns ("Failed to remove N items (32 EPERM, 8 EACCES)")
+// through this package instead of reaching into the engine directly. The
+// aggregation logic itself lives in fsx and is deliberately NOT
+// reimplemented here — fsx already has full test coverage for it
+// (TestAggregateFailures in packages/engine/fsx/remove_test.go).
+func ErrnoBreakdown(failures []fsx.RemoveFailure) []string {
+	return fsx.AggregateFailures(failures)
 }

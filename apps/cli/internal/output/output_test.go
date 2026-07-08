@@ -3,6 +3,8 @@ package output
 import (
 	"strings"
 	"testing"
+
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fsx"
 )
 
 func TestRule(t *testing.T) {
@@ -106,5 +108,36 @@ func TestTruncateNameHardTruncateEdgeCase(t *testing.T) {
 	}
 	if !strings.Contains(got, "...") {
 		t.Errorf("got %q, want it to contain %q", got, "...")
+	}
+}
+
+func TestErrnoBreakdownDelegatesToFsx(t *testing.T) {
+	failures := []fsx.RemoveFailure{
+		{Path: "/a", Code: "EPERM"},
+		{Path: "/b", Code: "EPERM"},
+		{Path: "/c", Code: "EACCES"},
+	}
+
+	got := ErrnoBreakdown(failures)
+	want := fsx.AggregateFailures(failures)
+
+	if len(got) != len(want) {
+		t.Fatalf("ErrnoBreakdown returned %d lines, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("line %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+
+	wantLine := "Failed to remove 3 items (2 EPERM, 1 EACCES)"
+	if len(got) != 1 || got[0] != wantLine {
+		t.Errorf("ErrnoBreakdown = %v, want [%q]", got, wantLine)
+	}
+}
+
+func TestErrnoBreakdownEmpty(t *testing.T) {
+	if got := ErrnoBreakdown(nil); got != nil {
+		t.Errorf("ErrnoBreakdown(nil) = %v, want nil", got)
 	}
 }
