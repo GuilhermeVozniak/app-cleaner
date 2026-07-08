@@ -32,13 +32,13 @@ func main() {
 			app,
 		},
 		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: "com.guhcostan.appcleaner",
+			UniqueId: "com.guilhermevozniak.appcleaner",
 		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   "App Cleaner",
-				Message: "Version 1.0.0\n© 2026 guhcostan — MIT\n\nA macOS cleaning app — Go/Wails port of mac-cleaner-cli.",
+				Message: "Version 1.0.0\n© 2026 Guilherme Vozniak — MIT\n\nA macOS cleaning app — Go/Wails port of mac-cleaner-cli.",
 				Icon:    iconBytes,
 			},
 		},
