@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/guhcostan/app-cleaner/internal/core"
+	"github.com/guhcostan/app-cleaner/internal/maintenance"
 )
 
 func sampleScan() map[core.CategoryID]core.ScanResult {
@@ -53,7 +57,7 @@ func TestResolveSelection_MatchesPathsInScanOrder(t *testing.T) {
 func TestResolveSelection_SkipsUnknownCategoryAndEmptySelection(t *testing.T) {
 	sel := map[string][]string{
 		"no-such-category": {"/home/u/whatever"},
-		"downloads":        {},                              // empty selection -> skipped
+		"downloads":        {},                             // empty selection -> skipped
 		"trash":            {"/home/u/.Trash/not-scanned"}, // no path matches -> skipped
 	}
 	if got := resolveSelection(sampleScan(), sel); len(got) != 0 {
@@ -138,3 +142,114 @@ func TestRunMaintenance_UnknownTask(t *testing.T) {
 		t.Errorf("error should name the unknown task, got %q", res.Error)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// resolveScanIDs (StartScan's default-selection/filter branch, extracted as a
+// pure function since StartScan itself needs a real Wails runtime context to
+// run headless — see runScan's wruntime.EventsEmit calls).
+// ---------------------------------------------------------------------------
+
+func TestResolveScanIDs_EmptySelectsAllRegisteredCategories(t *testing.T) {
+	got := resolveScanIDs(nil)
+	want := core.CategoriesInOrder()
+	if len(got) != len(want) {
+		t.Fatalf("resolveScanIDs(nil) returned %d ids, want %d (all registered categories)", len(got), len(want))
+	}
+	for i, cat := range want {
+		if got[i] != string(cat.ID) {
+			t.Errorf("resolveScanIDs(nil)[%d] = %q, want %q (order must match core.CategoriesInOrder())", i, got[i], cat.ID)
+		}
+	}
+}
+
+func TestResolveScanIDs_FiltersToKnownIDsOnly(t *testing.T) {
+	got := resolveScanIDs([]string{"trash", "no-such-category"})
+	if len(got) != 1 || got[0] != "trash" {
+		t.Fatalf("expected only the valid id to survive filtering, got %#v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// RunMaintenance dispatch (dns/purge), using fake Runner/Elevator injected
+// via App's runner/elevator fields so the real dscacheutil/purge binaries
+// are never executed.
+// ---------------------------------------------------------------------------
+
+type fakeMaintRunner struct {
+	out   string
+	err   error
+	calls []string
+}
+
+func (f *fakeMaintRunner) Run(ctx context.Context, timeout time.Duration, bin string, args ...string) (string, error) {
+	f.calls = append(f.calls, bin)
+	return f.out, f.err
+}
+
+type fakeMaintElevator struct {
+	out     string
+	err     error
+	scripts []string
+}
+
+func (f *fakeMaintElevator) RunElevated(ctx context.Context, script string) (string, error) {
+	f.scripts = append(f.scripts, script)
+	return f.out, f.err
+}
+
+func TestRunMaintenance_DNS_DispatchesToFlushDNS(t *testing.T) {
+	e := &fakeMaintElevator{}
+	app := &App{ctx: context.Background(), elevator: e}
+	res := app.RunMaintenance("dns")
+	if !res.Success || res.Message != "DNS cache flushed successfully" {
+		t.Fatalf("result = %+v, want maintenance.FlushDNS's success result", res)
+	}
+	if len(e.scripts) != 1 {
+		t.Fatalf("RunMaintenance(\"dns\") did not dispatch to FlushDNS's elevator, scripts = %#v", e.scripts)
+	}
+}
+
+func TestRunMaintenance_DNS_PropagatesFailure(t *testing.T) {
+	e := &fakeMaintElevator{err: errors.New("execution error: User canceled. (-128)")}
+	app := &App{ctx: context.Background(), elevator: e}
+	res := app.RunMaintenance("dns")
+	if res.Success || !res.RequiresAdmin {
+		t.Fatalf("result = %+v, want FlushDNS's failure/cancel result surfaced unchanged", res)
+	}
+}
+
+func TestRunMaintenance_Purge_DispatchesToFreePurgeableSpace(t *testing.T) {
+	r := &fakeMaintRunner{}
+	e := &fakeMaintElevator{}
+	app := &App{ctx: context.Background(), runner: r, elevator: e}
+	res := app.RunMaintenance("purge")
+	if !res.Success || res.Message != "Purgeable space freed successfully" {
+		t.Fatalf("result = %+v, want maintenance.FreePurgeable's success result", res)
+	}
+	if len(r.calls) != 1 || r.calls[0] != "/usr/sbin/purge" {
+		t.Fatalf("RunMaintenance(\"purge\") did not dispatch to FreePurgeable's runner, calls = %#v", r.calls)
+	}
+	if len(e.scripts) != 0 {
+		t.Fatal("plain purge succeeded, must not have elevated")
+	}
+}
+
+func TestRunMaintenance_Purge_ElevatesOnPermissionFailure(t *testing.T) {
+	r := &fakeMaintRunner{err: errors.New("purge: Operation not permitted")}
+	e := &fakeMaintElevator{}
+	app := &App{ctx: context.Background(), runner: r, elevator: e}
+	res := app.RunMaintenance("purge")
+	if !res.Success || res.Message != "Purgeable space freed successfully" {
+		t.Fatalf("result = %+v, want FreePurgeable's elevated-fallback success", res)
+	}
+	if len(e.scripts) != 1 || e.scripts[0] != "/usr/sbin/purge" {
+		t.Fatalf("expected one elevated purge call, got %#v", e.scripts)
+	}
+}
+
+// compile-time reassurance that App's fields satisfy the maintenance
+// interfaces without an adapter (mirrors NewApp's defaults).
+var (
+	_ maintenance.Runner   = (*fakeMaintRunner)(nil)
+	_ maintenance.Elevator = (*fakeMaintElevator)(nil)
+)

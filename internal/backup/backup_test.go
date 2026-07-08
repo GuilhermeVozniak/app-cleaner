@@ -125,6 +125,80 @@ func TestBackupItemsCancelMidBatchLeavesRemainingUntouched(t *testing.T) {
 	}
 }
 
+func TestBackupItemNonExistentGoesToNotBackedUp(t *testing.T) {
+	home := t.TempDir()
+	m := NewManager(home)
+	missing := filepath.Join(home, "Library", "Caches", "missing.txt")
+
+	out := m.BackupItems(context.Background(), home,
+		[]core.CleanableItem{{Path: missing, Size: 0, Name: "missing.txt"}}, nil)
+
+	if out.BackedUp != 0 || len(out.NotBackedUp) != 1 || out.NotBackedUp[0] != missing {
+		t.Fatalf("outcome = %+v, want missing item in NotBackedUp", out)
+	}
+	if len(out.Moved) != 0 {
+		t.Fatalf("Moved = %v, want empty: rename of a non-existent item must fail", out.Moved)
+	}
+}
+
+func TestBackupItemsEmptyCreatesNoSessionDir(t *testing.T) {
+	home := t.TempDir()
+	m := NewManager(home)
+
+	out := m.BackupItems(context.Background(), home, nil, nil)
+
+	if out.BackedUp != 0 || len(out.NotBackedUp) != 0 || len(out.Moved) != 0 {
+		t.Fatalf("outcome = %+v, want all-zero for an empty batch", out)
+	}
+	if out.SessionDir != "" {
+		t.Fatalf("SessionDir = %q, want empty: an empty batch must not create a session directory", out.SessionDir)
+	}
+	// Deviation from the CLI (which pre-created the backup root regardless of
+	// batch size): the Go port creates nothing on disk for an empty batch.
+	if entries, err := os.ReadDir(m.Root); err == nil && len(entries) != 0 {
+		t.Fatalf("Root has entries %v, want none: empty batch must not touch disk", entries)
+	}
+}
+
+func TestBackupItemsCountsSuccessesAndFailures(t *testing.T) {
+	home := t.TempDir()
+	m := NewManager(home)
+	ok := filepath.Join(home, "Library", "Caches", "success.txt")
+	writeFile(t, ok, "test")
+	fail := filepath.Join(home, "Library", "Caches", "fail.txt")
+
+	out := m.BackupItems(context.Background(), home, []core.CleanableItem{
+		{Path: ok, Size: 4, Name: "success.txt"},
+		{Path: fail, Size: 0, Name: "fail.txt"},
+	}, nil)
+
+	total := 2
+	if out.BackedUp+len(out.NotBackedUp) != total {
+		t.Fatalf("BackedUp(%d) + NotBackedUp(%d) = %d, want %d", out.BackedUp, len(out.NotBackedUp), out.BackedUp+len(out.NotBackedUp), total)
+	}
+	if len(out.Moved) != 1 || out.Moved[0] != ok {
+		t.Fatalf("Moved = %v, want only the successful item %q", out.Moved, ok)
+	}
+	if len(out.NotBackedUp) != 1 || out.NotBackedUp[0] != fail {
+		t.Fatalf("NotBackedUp = %v, want only the failing item %q", out.NotBackedUp, fail)
+	}
+}
+
+func TestRestoreEmptySessionDirectory(t *testing.T) {
+	home := t.TempDir()
+	m := NewManager(home)
+	session := filepath.Join(m.Root, "2026-07-08T00-00-00Z")
+	if err := os.MkdirAll(session, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	res := m.Restore(session, home)
+
+	if res.Restored != 0 || res.Failed != 0 || len(res.Errors) != 0 {
+		t.Fatalf("restore = %+v, want all-zero for an empty session directory", res)
+	}
+}
+
 func TestNonHomeItemNotBackedUp(t *testing.T) {
 	home := t.TempDir()
 	other := t.TempDir()

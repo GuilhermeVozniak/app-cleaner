@@ -132,6 +132,59 @@ func TestLaunchAgentsScanner(t *testing.T) {
 	}
 }
 
+func TestLaunchAgentsScannerNoProgramKeys(t *testing.T) {
+	home, agents := laHome(t)
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.no.program</string>
+	<key>KeepAlive</key>
+	<true/>
+</dict>
+</plist>
+`
+	if err := os.WriteFile(filepath.Join(agents, "com.no.program.plist"), []byte(xml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res := newLaunchAgentsScanner().Scan(context.Background(), Options{Roots: Roots{Home: home}})
+	if res.Error != "" || len(res.Items) != 0 {
+		t.Fatalf("plist with neither Program nor ProgramArguments: got %+v, want zero items no error", res)
+	}
+}
+
+func TestLaunchAgentsScannerSkipsHomebrewPrefixBinary(t *testing.T) {
+	home, agents := laHome(t)
+	laWriteXML(t, filepath.Join(agents, "homebrew.mxcl.service.plist"), "/opt/homebrew/bin/service")
+
+	res := newLaunchAgentsScanner().Scan(context.Background(), Options{Roots: Roots{Home: home}})
+	if res.Error != "" || len(res.Items) != 0 {
+		t.Fatalf("Program under /opt/homebrew/bin/ must be skipped (systemBinaryPrefixes), got %+v", res)
+	}
+}
+
+func TestLaunchAgentsScannerTotalSizeSumOfOrphans(t *testing.T) {
+	home, agents := laHome(t)
+	missing1 := filepath.Join(t.TempDir(), "gone1")
+	missing2 := filepath.Join(t.TempDir(), "gone2")
+	laWriteXML(t, filepath.Join(agents, "com.deleted.app1.plist"), missing1)
+	laWriteXML(t, filepath.Join(agents, "com.deleted.app2.plist"), missing2)
+
+	res := newLaunchAgentsScanner().Scan(context.Background(), Options{Roots: Roots{Home: home}})
+	if res.Error != "" || len(res.Items) != 2 {
+		t.Fatalf("want 2 orphaned items, got %+v", res)
+	}
+	var want int64
+	for _, it := range res.Items {
+		want += it.Size
+	}
+	if res.TotalSize != want {
+		t.Fatalf("TotalSize = %d, want sum of item sizes %d", res.TotalSize, want)
+	}
+}
+
 func TestLaunchAgentsScannerMissingAndUnreadableDir(t *testing.T) {
 	// Missing ~/Library/LaunchAgents → empty result, NO error.
 	res := newLaunchAgentsScanner().Scan(context.Background(), Options{Roots: Roots{Home: t.TempDir()}})

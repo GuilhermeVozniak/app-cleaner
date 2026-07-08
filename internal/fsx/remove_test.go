@@ -123,6 +123,37 @@ func TestRemoveItemsMissingPathENOENT(t *testing.T) {
 	}
 }
 
+func TestRemoveItemsHeterogeneousBatchReportsPerItemFailures(t *testing.T) {
+	dir := t.TempDir()
+	ok := filepath.Join(dir, "ok.txt")
+	writeFile(t, ok, 7)
+	nonexistent := filepath.Join(dir, "nonexistent")
+	items := []core.CleanableItem{
+		mkItem(ok, 7),
+		mkItem("/System/Library", 0),
+		mkItem(nonexistent, 0),
+	}
+	out := RemoveItems(context.Background(), items, false, nil)
+	if out.Cleaned != 1 {
+		t.Errorf("Cleaned = %d, want 1", out.Cleaned)
+	}
+	if len(out.Failures) != 2 {
+		t.Fatalf("Failures = %+v, want 2 entries", out.Failures)
+	}
+	if out.Freed != 7 {
+		t.Errorf("Freed = %d, want 7 (only the succeeded item's size)", out.Freed)
+	}
+	want := []RemoveFailure{
+		{Path: "/System/Library", Code: "PROTECTED"},
+		{Path: nonexistent, Code: "ENOENT"},
+	}
+	for i, w := range want {
+		if out.Failures[i] != w {
+			t.Errorf("Failures[%d] = %+v, want %+v", i, out.Failures[i], w)
+		}
+	}
+}
+
 func TestRemoveItemsCancellationStopsBetweenItems(t *testing.T) {
 	dir := t.TempDir()
 	paths := make([]string, 3)

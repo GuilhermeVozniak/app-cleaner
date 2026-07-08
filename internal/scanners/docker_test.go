@@ -29,13 +29,13 @@ func TestDefaultCandidateAllowlists(t *testing.T) {
 func TestParseDockerSize(t *testing.T) {
 	cases := map[string]int64{
 		"1.5GB":         1500000000, // SI/decimal — spec §10.5 fixes the CLI's 1024 bug
-		"250.5MB (62%)":  250500000,
-		"2kB":            2000,
-		"2KB":            2000,
-		"1TB":            1000000000000,
-		"512B":           512,
-		"0B":             0,
-		"N/A":            0,
+		"250.5MB (62%)": 250500000,
+		"2kB":           2000,
+		"2KB":           2000,
+		"1TB":           1000000000000,
+		"512B":          512,
+		"0B":            0,
+		"N/A":           0,
 	}
 	for in, want := range cases {
 		if got := parseDockerSize(in); got != want {
@@ -165,6 +165,21 @@ func TestDockerCleanFailureAndDryRun(t *testing.T) {
 	}
 	if len(r2.calls) != 0 {
 		t.Fatalf("dry run must not execute commands: %v", r2.calls)
+	}
+}
+
+func TestDockerCleanNoBinaryAndNilRunnerReturnsError(t *testing.T) {
+	s := newDockerScanner()
+	s.candidates = []string{filepath.Join(t.TempDir(), "missing-docker")} // dockerPath stays ""; runner never set (nil)
+
+	items := []core.CleanableItem{{Path: "docker:images", Size: 100, Name: "Docker Images"}}
+	cr := s.Clean(context.Background(), items, false, nil)
+
+	if cr.CleanedItems != 0 || cr.FreedSpace != 0 {
+		t.Fatalf("CleanResult = %+v, want 0 cleaned / 0 freed", cr)
+	}
+	if len(cr.Errors) != 1 || cr.Errors[0] != "Docker binary not found in safe locations" {
+		t.Fatalf("Errors = %v, want ['Docker binary not found in safe locations']", cr.Errors)
 	}
 }
 

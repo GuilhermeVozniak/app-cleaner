@@ -16,12 +16,12 @@ import (
 // DisplayRow is one row of the grouped item list. The JSON shape is consumed
 // verbatim by the frontend (lib/types.ts DisplayRow).
 type DisplayRow struct {
-	Type            string `json:"type"` // "directory-header" | "file" | "expand-hint"
-	DirectoryKey    string `json:"directoryKey"`    // absolute dir path (grouping/expand key)
-	DisplayName     string `json:"displayName"`     // header: truncated dir path; file: basename
-	Path            string `json:"path,omitempty"`  // file rows only
-	Size            int64  `json:"size,omitempty"`  // file rows only
-	Name            string `json:"name,omitempty"`  // file rows only
+	Type            string `json:"type"`                  // "directory-header" | "file" | "expand-hint"
+	DirectoryKey    string `json:"directoryKey"`          // absolute dir path (grouping/expand key)
+	DisplayName     string `json:"displayName"`           // header: truncated dir path; file: basename
+	Path            string `json:"path,omitempty"`        // file rows only
+	Size            int64  `json:"size,omitempty"`        // file rows only
+	Name            string `json:"name,omitempty"`        // file rows only
 	HiddenCount     int    `json:"hiddenCount,omitempty"` // expand-hint rows only
 	TotalFilesInDir int    `json:"totalFilesInDir"`
 	Selectable      bool   `json:"selectable"`

@@ -29,9 +29,9 @@ var Categories = map[CategoryID]Category{
 	},
 	"downloads": {
 		ID: "downloads", Name: "Old Downloads", Group: "Storage",
-		Description: "Downloads older than 30 days",
-		SafetyLevel: SafetyRisky,
-		SafetyNote:  "May contain important files you forgot about",
+		Description:           "Downloads older than 30 days",
+		SafetyLevel:           SafetyRisky,
+		SafetyNote:            "May contain important files you forgot about",
 		SupportsFileSelection: true,
 	},
 	"browser-cache": {
@@ -75,9 +75,9 @@ var Categories = map[CategoryID]Category{
 	},
 	"large-files": {
 		ID: "large-files", Name: "Large Files", Group: "Large Files",
-		Description: "Files larger than 500MB for review",
-		SafetyLevel: SafetyRisky,
-		SafetyNote:  "Review each file carefully before deleting",
+		Description:           "Files larger than 500MB for review",
+		SafetyLevel:           SafetyRisky,
+		SafetyNote:            "Review each file carefully before deleting",
 		SupportsFileSelection: true,
 	},
 	"node-modules": {

@@ -42,6 +42,14 @@ type App struct {
 	backupMgr    *backup.Manager
 	home         string
 	iconCacheDir string
+
+	// runner/elevator back every maintenance call (RunMaintenance,
+	// StartTMSnapshotsClear) and GetAppIcon. Injectable fields (rather than
+	// constructing maintenance.ExecRunner{}/OsaElevator inline) let tests
+	// substitute fakes so maintenance tests never shell out to the real
+	// dscacheutil/purge/tmutil binaries.
+	runner   maintenance.Runner
+	elevator maintenance.Elevator
 }
 
 // CleanOptions is the options payload for StartClean.
@@ -51,7 +59,12 @@ type CleanOptions struct {
 }
 
 func NewApp() *App {
-	return &App{lastScan: make(map[core.CategoryID]core.ScanResult)}
+	runner := maintenance.ExecRunner{}
+	return &App{
+		lastScan: make(map[core.CategoryID]core.ScanResult),
+		runner:   runner,
+		elevator: maintenance.OsaElevator{Runner: runner},
+	}
 }
 
 // startup is wired to options.App.OnStartup in main.go. Not bound to JS
@@ -84,6 +97,28 @@ func (a *App) GetCategories() []core.Category {
 	return core.CategoriesInOrder()
 }
 
+// resolveScanIDs maps a frontend category-id selection onto the ids to
+// scan: empty input selects every registered category (in
+// core.CategoriesInOrder()); a non-empty input is filtered down to known
+// category ids, with unknown ids silently dropped. Pure function
+// (unit-tested without the Wails runtime), mirroring resolveSelection.
+func resolveScanIDs(raw []string) []string {
+	if len(raw) == 0 {
+		var ids []string
+		for _, cat := range core.CategoriesInOrder() {
+			ids = append(ids, string(cat.ID))
+		}
+		return ids
+	}
+	var ids []string
+	for _, r := range raw {
+		if _, ok := scanners.Get(core.CategoryID(r)); ok { // unknown ids silently skipped
+			ids = append(ids, r)
+		}
+	}
+	return ids
+}
+
 // StartScan starts scanning the given category ids (all 16 when empty) in a
 // goroutine and returns immediately. Progress is streamed as scan:progress,
 // completion as scan:done.
@@ -94,17 +129,8 @@ func (a *App) StartScan(rawIDs []string) error {
 		return errors.New("a scan is already running")
 	}
 	var ids []core.CategoryID
-	if len(rawIDs) == 0 {
-		for _, cat := range core.CategoriesInOrder() {
-			ids = append(ids, cat.ID)
-		}
-	} else {
-		for _, raw := range rawIDs {
-			id := core.CategoryID(raw)
-			if _, ok := scanners.Get(id); ok { // unknown ids silently skipped
-				ids = append(ids, id)
-			}
-		}
+	for _, raw := range resolveScanIDs(rawIDs) {
+		ids = append(ids, core.CategoryID(raw))
 	}
 	if len(ids) == 0 {
 		a.mu.Unlock()
@@ -517,24 +543,21 @@ func (a *App) GetAppIcon(path string) string {
 // Maintenance
 // ---------------------------------------------------------------------------
 
-// appRunner and appElevator are the ONE shared, tested Runner/Elevator used
-// by every maintenance call and by GetAppIcon: maintenance.ExecRunner (real
-// exec.CommandContext) and maintenance.OsaElevator, which enforces the 120s
-// elevatedTimeout (internal/maintenance/elevate.go) for every admin-privileged
-// call. Duplicating these locally previously bypassed that timeout.
-var (
-	appRunner   = maintenance.ExecRunner{}
-	appElevator = maintenance.OsaElevator{Runner: appRunner}
-)
-
 // RunMaintenance runs the short synchronous tasks ("dns" | "purge"). Time
 // Machine snapshot clearing is long-running and uses StartTMSnapshotsClear.
+// a.runner/a.elevator are the ONE shared, tested Runner/Elevator used by
+// every maintenance call and by GetAppIcon: maintenance.ExecRunner (real
+// exec.CommandContext) and maintenance.OsaElevator, which enforces the 120s
+// elevatedTimeout (internal/maintenance/elevate.go) for every
+// admin-privileged call. Duplicating these locally previously bypassed that
+// timeout; tests inject fakes via these fields instead of constructing them
+// inline (see NewApp).
 func (a *App) RunMaintenance(task string) maintenance.Result {
 	switch task {
 	case "dns":
-		return maintenance.FlushDNS(a.ctx, appElevator)
+		return maintenance.FlushDNS(a.ctx, a.elevator)
 	case "purge":
-		return maintenance.FreePurgeable(a.ctx, appRunner, appElevator)
+		return maintenance.FreePurgeable(a.ctx, a.runner, a.elevator)
 	default:
 		return maintenance.Result{Success: false, Error: fmt.Sprintf("unknown maintenance task: %q", task)}
 	}
@@ -568,7 +591,7 @@ func (a *App) runTMClear(ctx context.Context) {
 		}
 	}()
 
-	result := maintenance.ClearTMSnapshots(ctx, appRunner, appElevator,
+	result := maintenance.ClearTMSnapshots(ctx, a.runner, a.elevator,
 		func(done, total int, date, errMsg string) {
 			wruntime.EventsEmit(a.ctx, "maintenance:progress", map[string]any{
 				"done":  done,

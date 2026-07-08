@@ -41,3 +41,19 @@ func TestTrashScannerScanAndClean(t *testing.T) {
 		t.Fatalf("trash dir not emptied: entries=%v err=%v", entries, err)
 	}
 }
+
+func TestTrashScannerEmptyExistingDir(t *testing.T) {
+	s, ok := Get("trash")
+	if !ok {
+		t.Fatal("trash scanner not registered")
+	}
+
+	opts := testOptions(t)
+	trash := filepath.Join(opts.Roots.Home, ".Trash")
+	mkDir(t, trash)
+
+	res := s.Scan(context.Background(), opts)
+	if res.Error != "" || len(res.Items) != 0 || res.TotalSize != 0 {
+		t.Fatalf("existing but empty .Trash dir: got %+v, want 0 items / 0 size / no error", res)
+	}
+}

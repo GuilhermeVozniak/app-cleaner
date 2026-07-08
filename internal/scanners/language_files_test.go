@@ -102,6 +102,21 @@ func TestLanguageFilesScanner(t *testing.T) {
 	}
 }
 
+func TestLanguageFilesScannerNonexistentApplicationsRoot(t *testing.T) {
+	s := newLanguageFilesScanner()
+	s.preferred = func(home string) []string { return nil }
+
+	opts := Options{
+		Roots: Roots{Home: t.TempDir(), Applications: filepath.Join(t.TempDir(), "nonexistent-applications")},
+		Cfg:   config.Default(),
+	}
+	result := s.Scan(context.Background(), opts)
+
+	if result.Error != "" || len(result.Items) != 0 || result.TotalSize != 0 {
+		t.Fatalf("nonexistent Applications root: got %+v, want empty ScanResult, no error", result)
+	}
+}
+
 // TestLanguageFilesScannerCaseSensitiveKeepLanguages proves KeepLanguages
 // matching is case-sensitive: an uppercase config entry must NOT keep a
 // lowercase on-disk .lproj directory of the "same" language (spec §5 /

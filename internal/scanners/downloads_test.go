@@ -49,6 +49,24 @@ func TestDownloadsScannerAgeBoundary(t *testing.T) {
 	}
 }
 
+func TestDownloadsScannerEmptyExistingDir(t *testing.T) {
+	s, ok := Get("downloads")
+	if !ok {
+		t.Fatal("downloads scanner not registered")
+	}
+
+	opts := testOptions(t)
+	dl := filepath.Join(opts.Roots.Home, "Downloads")
+	if err := os.MkdirAll(dl, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	res := s.Scan(context.Background(), opts)
+	if res.Error != "" || len(res.Items) != 0 {
+		t.Fatalf("existing but empty Downloads dir: got %+v, want 0 items, no error", res)
+	}
+}
+
 func TestDownloadsScannerUsesConfiguredThreshold(t *testing.T) {
 	s, _ := Get("downloads")
 	opts := testOptions(t)
