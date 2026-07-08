@@ -36,6 +36,10 @@ app-cleaner/
 | `apps/cli` | The terminal: full-parity Bubble Tea TUI plus non-interactive flags (`scan`, `clean`, `uninstall`, `maintenance`, `backups`), sharing the same `~/Library/Application Support/AppCleaner/` backup store as the GUI. |
 | `apps/web` | The landing page: a static Next.js site with OS-aware download links, deployed to GitHub Pages. |
 
+## Terminal CLI
+
+- **`apps/cli`** — terminal CLI, full parity with the desktop app. See [`apps/cli/README.md`](apps/cli/README.md) for the command reference and keymap. Install via a release tarball or `git clone && task build:cli`.
+
 ## Prerequisites
 
 | Tool | Version | Install |
