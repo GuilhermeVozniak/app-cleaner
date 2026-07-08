@@ -5,6 +5,9 @@ import FirstRun from './views/FirstRun';
 import SmartScan from './views/SmartScan';
 import CategoryDetail from './views/CategoryDetail';
 import Uninstaller from './views/Uninstaller';
+import Maintenance from './views/Maintenance';
+import Backups from './views/Backups';
+import Settings from './views/Settings';
 import { CleanFlow } from './components/CleanFlow';
 import { useUiStore } from './stores/uiStore';
 
@@ -48,9 +51,9 @@ function App() {
         {view === 'smart-scan' && <SmartScan />}
         {view === 'category' && <CategoryDetail />}
         {view === 'uninstaller' && <Uninstaller />}
-        {view === 'maintenance' && <Placeholder title="Maintenance" />}
-        {view === 'backups' && <Placeholder title="Backups" />}
-        {view === 'settings' && <Placeholder title="Settings" />}
+        {view === 'maintenance' && <Maintenance />}
+        {view === 'backups' && <Backups />}
+        {view === 'settings' && <Settings />}
       </main>
       <CleanFlow />
     </div>
