@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import CategoryDetail from './CategoryDetail';
 import { bumpExpand, invertSelection, togglePath } from '../lib/selection';
@@ -6,7 +6,23 @@ import { contractHome } from '../lib/paths';
 import { middleTruncate } from '../lib/format';
 import { useScanStore } from '../stores/scanStore';
 import { useUiStore } from '../stores/uiStore';
-import type { Category } from '../lib/types';
+import type { Category, DisplayRow } from '../lib/types';
+
+// GetHome is read exactly once, at module-load time of ../lib/paths (see that
+// file's comment): reconfiguring the mock later can't change an already-
+// resolved cachedHome. So the resolved value must be correct from the start —
+// hence a fixed mockResolvedValue at vi.hoisted time rather than in beforeEach.
+// GroupItems, by contrast, is invoked fresh on every render via useEffect, so
+// its return value can be set per-test in beforeEach.
+const { mockGetHome, mockGroupItems } = vi.hoisted(() => ({
+  mockGetHome: vi.fn().mockResolvedValue('/Users/tester'),
+  mockGroupItems: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../wailsjs/go/main/App', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../wailsjs/go/main/App')>();
+  return { ...actual, GetHome: mockGetHome, GroupItems: mockGroupItems };
+});
 
 describe('bumpExpand (expand-hint bump logic, CLI parity: (existing ?? 5) + 10)', () => {
   it('bumps an unexpanded directory from the default limit', () => {
@@ -105,5 +121,65 @@ describe('docker category rows are not selectable', () => {
     expect(screen.queryByText('Invert')).toBeNull();
     expect(screen.getByText('Docker images')).toBeInTheDocument();
     expect(screen.getByText('Docker build cache')).toBeInTheDocument();
+  });
+});
+
+describe('grouped (drill-down) file rows contract the home directory before truncation', () => {
+  const home = '/Users/tester';
+  const filePath = `${home}/Downloads/big-file.zip`;
+
+  beforeEach(() => {
+    useScanStore.getState().reset();
+    const downloads: Category = {
+      id: 'downloads',
+      name: 'Old Downloads',
+      group: 'Storage',
+      description: '',
+      safetyLevel: 'risky',
+      supportsFileSelection: true,
+    };
+    useScanStore.setState({
+      status: 'done',
+      results: {
+        downloads: {
+          category: downloads,
+          items: [{ path: filePath, size: 12345, name: 'big-file.zip', isDirectory: false }],
+          totalSize: 12345,
+        },
+      },
+      itemCounts: { downloads: 1 },
+      totalSize: 12345,
+    });
+    useUiStore.setState({ view: 'category', activeCategoryId: 'downloads' });
+
+    const rows: DisplayRow[] = [
+      {
+        type: 'directory-header',
+        directoryKey: `${home}/Downloads`,
+        displayName: 'Downloads',
+        totalFilesInDir: 1,
+        selectable: false,
+      },
+      {
+        type: 'file',
+        directoryKey: `${home}/Downloads`,
+        displayName: 'big-file.zip',
+        path: filePath,
+        name: 'big-file.zip',
+        size: 12345,
+        totalFilesInDir: 1,
+        selectable: true,
+      },
+    ];
+    mockGroupItems.mockResolvedValue(rows);
+  });
+
+  it("shows the grouped file row's path home-contracted (~/…), not the raw absolute path", async () => {
+    render(<CategoryDetail />);
+    const expected = middleTruncate(contractHome(filePath, home), 50);
+    expect(expected.startsWith('~/')).toBe(true);
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+    expect(screen.queryByText(filePath)).toBeNull();
   });
 });

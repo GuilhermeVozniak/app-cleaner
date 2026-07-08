@@ -5,6 +5,7 @@ import EmptyState from '../components/EmptyState';
 import ItemList from '../components/ItemList';
 import SafetyBadge from '../components/SafetyBadge';
 import { formatSize, middleTruncate } from '../lib/format';
+import { contractHome, homeDir } from '../lib/paths';
 import { bumpExpand, invertSelection, togglePath } from '../lib/selection';
 import type { DisplayRow } from '../lib/types';
 import { useScanStore } from '../stores/scanStore';
@@ -149,7 +150,7 @@ export default function CategoryDetail() {
                   className="min-w-0 flex-1 truncate text-xs text-neutral-400 dark:text-neutral-500"
                   title={path}
                 >
-                  {middleTruncate(path, 50)}
+                  {middleTruncate(contractHome(path, homeDir()), 50)}
                 </span>
                 <span className="hidden shrink-0 items-center gap-1 group-hover:flex">
                   <button
