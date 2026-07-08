@@ -1,0 +1,69 @@
+version: "3"
+
+tasks:
+  default:
+    cmds: [task --list]
+
+  lint:
+    desc: Lint all code (Biome across JS/TS workspaces + golangci-lint per Go module)
+    cmds:
+      - bun run lint
+      - cd packages/engine && golangci-lint run ./...
+      - cd apps/desktop && golangci-lint run ./...
+      - |
+        if [ -d apps/cli ]; then
+          (cd apps/cli && golangci-lint run ./...)
+        fi
+
+  test:
+    desc: Run all unit/integration tests (Vitest across JS/TS workspaces + go test per Go module)
+    cmds:
+      - bun run test
+      - cd packages/engine && go test ./... -race -cover
+      - cd apps/desktop && go test ./... -race -cover
+      - |
+        if [ -d apps/cli ]; then
+          (cd apps/cli && go test ./... -race -cover)
+        fi
+
+  build:
+    desc: Build web + desktop (+ cli once apps/cli exists)
+    cmds:
+      - bun run build
+      - cd apps/desktop && wails build
+      - |
+        if [ -d apps/cli ]; then
+          task build:cli
+        fi
+
+  build:cli:
+    desc: Build the CLI binary (apps/cli/bin/app-cleaner)
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+    cmds:
+      - mkdir -p apps/cli/bin
+      - cd apps/cli && go build -ldflags "-X main.version={{.VERSION}}" -o bin/app-cleaner .
+
+  dev:web:
+    desc: Run the landing page dev server
+    cmds: [cd apps/web && bun run dev]
+
+  dev:desktop:
+    desc: Run the desktop app in Wails dev mode
+    cmds: [cd apps/desktop && wails dev]
+
+  dev:cli:
+    desc: Run the CLI in interactive mode from source (requires apps/cli)
+    cmds: [cd apps/cli && go run .]
+
+  release:prep:
+    desc: Assert a clean working tree and green tests, then print tag instructions
+    cmds:
+      - |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Working tree is not clean — commit or stash first." >&2
+          exit 1
+        fi
+      - task test
+      - 'echo "Tree is clean and tests are green. Tag with: git tag vX.Y.Z && git push origin vX.Y.Z"'
