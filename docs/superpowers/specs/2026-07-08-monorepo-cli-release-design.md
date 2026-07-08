@@ -49,13 +49,14 @@ Mechanical move of every `internal/*` package plus `internal/config` out of the 
 - **No behavior change**: all 244 Go tests move with their packages and must pass unmodified (only import lines change).
 - What stays in `apps/desktop`: `main.go`, `app.go` + `app_test.go` (bridge: bound methods, event emission, `splitByBackup`, `resolveScanIDs`, DisplayRow wiring), `frontend/`, `build/`, `tools/genicon`.
 - `grouping.DisplayRow` remains the wire contract for the GUI **and** becomes the row model for the CLI file picker (§8.3).
+- Module resolution: `apps/desktop` and `apps/cli` `go.mod`s carry `require .../packages/engine v0.0.0` + a relative `replace` directive; `go.work` at root exists for editor/tooling convenience. Every checkout builds without registry access.
 - Engine module has **no** wails dependency; `go.mod` carries only `howett.net/plist` (v1.0.2-0.20250314012144-ee69052608d9, the wails-compatible pseudo-version — the MVS trap no longer applies across modules, but keep the pin to avoid surprises when go.work resolves).
 
 ## 4. Landing page (`apps/web`)
 
 Same stack and structure as option-tab's web app: Next.js 15 `output: "export"`, React 19, Tailwind CSS 4, Biome, Vitest. `basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? ""`; `public/CNAME` = `app-cleaner.vozniak.dev`.
 
-Content (single page): hero (name, tagline "Reclaim disk space on your Mac", download button for the dmg), feature grid (16 scan categories with safety levels; undo backups; app uninstaller; maintenance tasks; native + open source), a CLI section (`brew`-free install: download tarball or `go install .../apps/cli@main`, one screenshot-style terminal block), footer (GitHub, license, "ported from mac-cleaner-cli"). Download links come from `@app-cleaner/shared` `downloadUrl()` / `latestReleaseUrl()` — never hard-coded.
+Content (single page): hero (name, tagline "Reclaim disk space on your Mac", download button for the dmg), feature grid (16 scan categories with safety levels; undo backups; app uninstaller; maintenance tasks; native + open source), a CLI section (download tarball or `git clone && task build:cli`, one screenshot-style terminal block), footer (GitHub, license, "ported from mac-cleaner-cli"). Download links come from `@app-cleaner/shared` `downloadUrl()` / `latestReleaseUrl()` — never hard-coded.
 
 ## 5. Shared release-asset contract (`packages/shared`)
 
@@ -143,7 +144,7 @@ Full-parity port of mac-cleaner-cli's terminal UX on top of `packages/engine`. N
 - No Playwright e2e (none exists; CI gates on unit suites + builds).
 - CLI tarball not notarized (binary signed only).
 - ko-fi donation prompt dropped from the CLI.
-- `go install` documented against `@main` (nested-module tags like `apps/cli/v1.0.0` are cut by the release workflow so `@latest` also resolves, but the tarball is the primary channel).
+- No `go install` channel: the desktop/cli modules resolve the engine via `replace` directives (required for reliable unpublished-module builds), which `go install` ignores. Install channels: release tarball (primary) or `git clone && task build:cli`.
 
 ## 11. Out of scope
 Homebrew tap/cask, auto-update (Sparkle), analytics, Windows/Linux ports, localization.
