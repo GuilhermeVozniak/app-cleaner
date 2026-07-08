@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/guhcostan/app-cleaner/internal/core"
-	"github.com/guhcostan/app-cleaner/internal/maintenance"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/maintenance"
 )
 
 func sampleScan() map[core.CategoryID]core.ScanResult {

@@ -1,11 +1,14 @@
-module github.com/guhcostan/app-cleaner
+module github.com/GuilhermeVozniak/app-cleaner/apps/desktop
 
 go 1.26
 
 require (
+	github.com/GuilhermeVozniak/app-cleaner/packages/engine v0.0.0
 	github.com/wailsapp/wails/v2 v2.13.0
 	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9
 )
+
+replace github.com/GuilhermeVozniak/app-cleaner/packages/engine => ../../packages/engine
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect

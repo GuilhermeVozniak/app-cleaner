@@ -1,0 +1,6 @@
+go 1.26
+
+use (
+	./packages/engine
+	./apps/desktop
+)

@@ -9,14 +9,14 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/guhcostan/app-cleaner/internal/backup"
-	"github.com/guhcostan/app-cleaner/internal/config"
-	"github.com/guhcostan/app-cleaner/internal/core"
-	"github.com/guhcostan/app-cleaner/internal/fda"
-	"github.com/guhcostan/app-cleaner/internal/grouping"
-	"github.com/guhcostan/app-cleaner/internal/maintenance"
-	"github.com/guhcostan/app-cleaner/internal/scanners"
-	"github.com/guhcostan/app-cleaner/internal/uninstall"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/backup"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/config"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fda"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/grouping"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/maintenance"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/scanners"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/uninstall"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
