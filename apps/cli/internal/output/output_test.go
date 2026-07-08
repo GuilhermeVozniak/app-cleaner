@@ -1,9 +1,11 @@
 package output
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fsx"
 )
 
@@ -139,5 +141,107 @@ func TestErrnoBreakdownDelegatesToFsx(t *testing.T) {
 func TestErrnoBreakdownEmpty(t *testing.T) {
 	if got := ErrnoBreakdown(nil); got != nil {
 		t.Errorf("ErrnoBreakdown(nil) = %v, want nil", got)
+	}
+}
+
+func scanSummaryFixture() core.ScanSummary {
+	return core.ScanSummary{
+		TotalSize:  1000,
+		TotalItems: 1,
+		Results: []core.ScanResult{
+			{
+				Category: core.Category{
+					ID:          "trash",
+					Name:        "Trash",
+					Group:       "Storage",
+					SafetyLevel: "safe",
+				},
+				Items: []core.CleanableItem{
+					{Path: "/Users/mac/.Trash/foo.txt", Size: 1000, Name: "foo.txt"},
+				},
+				TotalSize: 1000,
+			},
+			{
+				Category: core.Category{
+					ID:          "docker",
+					Name:        "Docker",
+					Group:       "Development",
+					SafetyLevel: "moderate",
+				},
+				Items:     nil,
+				TotalSize: 0,
+			},
+		},
+	}
+}
+
+const wantScanJSONNonVerbose = `{
+  "totalSize": 1000,
+  "totalItems": 1,
+  "categories": [
+    {
+      "id": "trash",
+      "name": "Trash",
+      "group": "Storage",
+      "safetyLevel": "safe",
+      "totalSize": 1000,
+      "itemCount": 1
+    }
+  ]
+}`
+
+const wantScanJSONVerbose = `{
+  "totalSize": 1000,
+  "totalItems": 1,
+  "categories": [
+    {
+      "id": "trash",
+      "name": "Trash",
+      "group": "Storage",
+      "safetyLevel": "safe",
+      "totalSize": 1000,
+      "itemCount": 1,
+      "items": [
+        {
+          "path": "/Users/mac/.Trash/foo.txt",
+          "size": 1000
+        }
+      ]
+    }
+  ]
+}`
+
+func TestMarshalScanJSONNonVerboseOmitsCategoryWithNoItemsAndOmitsItemsKey(t *testing.T) {
+	got, err := MarshalScanJSON(scanSummaryFixture(), false)
+	if err != nil {
+		t.Fatalf("MarshalScanJSON error = %v", err)
+	}
+	if string(got) != wantScanJSONNonVerbose {
+		t.Errorf("MarshalScanJSON(verbose=false) =\n%s\nwant:\n%s", got, wantScanJSONNonVerbose)
+	}
+}
+
+func TestMarshalScanJSONVerboseIncludesItems(t *testing.T) {
+	got, err := MarshalScanJSON(scanSummaryFixture(), true)
+	if err != nil {
+		t.Fatalf("MarshalScanJSON error = %v", err)
+	}
+	if string(got) != wantScanJSONVerbose {
+		t.Errorf("MarshalScanJSON(verbose=true) =\n%s\nwant:\n%s", got, wantScanJSONVerbose)
+	}
+}
+
+func TestEncodeScanJSONEmptyCategoriesSliceNotNil(t *testing.T) {
+	empty := core.ScanSummary{}
+	got := EncodeScanJSON(empty, false)
+	if got.Categories == nil {
+		t.Error("EncodeScanJSON(empty).Categories = nil, want non-nil empty slice (so JSON encodes [] not null)")
+	}
+	b, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("json.Marshal error = %v", err)
+	}
+	if !strings.Contains(string(b), `"categories":[]`) {
+		t.Errorf("marshaled empty summary = %s, want it to contain \"categories\":[]", b)
 	}
 }

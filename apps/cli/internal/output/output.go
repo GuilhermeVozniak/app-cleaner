@@ -7,8 +7,10 @@
 package output
 
 import (
+	"encoding/json"
 	"strings"
 
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fsx"
 )
 
@@ -95,4 +97,72 @@ func TruncateName(name string, maxLength int) string {
 // (TestAggregateFailures in packages/engine/fsx/remove_test.go).
 func ErrnoBreakdown(failures []fsx.RemoveFailure) []string {
 	return fsx.AggregateFailures(failures)
+}
+
+// ScanJSONItem is one item entry in the `scan --json --verbose` output.
+type ScanJSONItem struct {
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+}
+
+// ScanJSONCategory is one category entry in the `scan --json` output. Items
+// is present only when the scan was requested with --verbose — omitted
+// entirely (not an empty array) otherwise, matching the original CLI's
+// optional `items?` field (porting-notes.json §commands, scan.ts
+// toJsonSummary).
+type ScanJSONCategory struct {
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Group       string         `json:"group"`
+	SafetyLevel string         `json:"safetyLevel"`
+	TotalSize   int64          `json:"totalSize"`
+	ItemCount   int            `json:"itemCount"`
+	Items       []ScanJSONItem `json:"items,omitempty"`
+}
+
+// ScanJSON is the `scan --json` payload shape.
+type ScanJSON struct {
+	TotalSize  int64              `json:"totalSize"`
+	TotalItems int                `json:"totalItems"`
+	Categories []ScanJSONCategory `json:"categories"`
+}
+
+// EncodeScanJSON builds the `scan --json` payload from an engine
+// core.ScanSummary, reproducing the original CLI's toJsonSummary shape
+// exactly (porting-notes.json §commands, mac-cleaner-cli
+// src/commands/scan.ts). Categories with zero items are omitted; per-item
+// paths/sizes are included only when verbose is true.
+func EncodeScanJSON(summary core.ScanSummary, verbose bool) ScanJSON {
+	out := ScanJSON{
+		TotalSize:  summary.TotalSize,
+		TotalItems: summary.TotalItems,
+		Categories: []ScanJSONCategory{},
+	}
+	for _, r := range summary.Results {
+		if len(r.Items) == 0 {
+			continue
+		}
+		cat := ScanJSONCategory{
+			ID:          string(r.Category.ID),
+			Name:        r.Category.Name,
+			Group:       string(r.Category.Group),
+			SafetyLevel: string(r.Category.SafetyLevel),
+			TotalSize:   r.TotalSize,
+			ItemCount:   len(r.Items),
+		}
+		if verbose {
+			cat.Items = make([]ScanJSONItem, len(r.Items))
+			for i, it := range r.Items {
+				cat.Items[i] = ScanJSONItem{Path: it.Path, Size: it.Size}
+			}
+		}
+		out.Categories = append(out.Categories, cat)
+	}
+	return out
+}
+
+// MarshalScanJSON renders EncodeScanJSON's result with a 2-space indent,
+// matching the original's JSON.stringify(obj, null, 2).
+func MarshalScanJSON(summary core.ScanSummary, verbose bool) ([]byte, error) {
+	return json.MarshalIndent(EncodeScanJSON(summary, verbose), "", "  ")
 }
