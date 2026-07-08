@@ -12,6 +12,9 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed build/appicon.png
+var iconBytes []byte
+
 func main() {
 	app := NewApp()
 
@@ -35,7 +38,8 @@ func main() {
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   "App Cleaner",
-				Message: "Clean and maintain your Mac. 100% offline.",
+				Message: "Version 1.0.0\n© 2026 guhcostan — MIT\n\nA macOS cleaning app — Go/Wails port of mac-cleaner-cli.",
+				Icon:    iconBytes,
 			},
 		},
 	})
