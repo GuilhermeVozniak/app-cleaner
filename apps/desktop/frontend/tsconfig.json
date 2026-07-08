@@ -11,7 +11,12 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "useDefineForClassFields": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "react": ["./node_modules/@types/react"],
+      "react-dom": ["./node_modules/@types/react-dom"]
+    }
   },
   "include": ["src", "wailsjs"]
 }
