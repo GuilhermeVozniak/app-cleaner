@@ -8,6 +8,7 @@ apps/desktop/build/bin/
 # Node
 node_modules/
 apps/desktop/frontend/dist/
+packages/shared/dist/
 
 # OS
 .DS_Store
