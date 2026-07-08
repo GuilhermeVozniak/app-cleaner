@@ -29,4 +29,6 @@ require (
 	golang.org/x/text v0.3.8 // indirect
 )
 
+require github.com/GuilhermeVozniak/app-cleaner/packages/engine v0.0.0
+
 replace github.com/GuilhermeVozniak/app-cleaner/packages/engine => ../../packages/engine
