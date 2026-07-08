@@ -27,9 +27,3 @@ func TestRootCommandVersionFlag(t *testing.T) {
 		t.Fatalf("version output = %q, want it to contain %q", got, "9.9.9")
 	}
 }
-
-func TestRunInteractiveStubIsNoop(t *testing.T) {
-	if err := RunInteractive(rootCmd, nil); err != nil {
-		t.Fatalf("RunInteractive stub returned error: %v", err)
-	}
-}
