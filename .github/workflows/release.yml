@@ -1,0 +1,122 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  # Gate the release on the full test suite: engine, desktop, cli (if present),
+  # frontend, and the web build must all be green before any signing happens.
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.26" }
+      - run: bun install --frozen-lockfile
+      - name: Build desktop frontend (main.go embeds frontend/dist)
+        run: cd apps/desktop/frontend && bun run build
+      - name: Test packages/engine
+        run: cd packages/engine && go test ./... -race -cover
+      - name: Test apps/desktop
+        run: cd apps/desktop && go test ./... -race -cover
+      - name: Test apps/cli
+        if: hashFiles('apps/cli/go.mod') != ''
+        run: cd apps/cli && go test ./... -race -cover
+      - name: Frontend vitest
+        run: cd apps/desktop/frontend && bun run test
+      - name: Web build
+        run: cd apps/web && bun run build
+
+  build-release:
+    needs: test
+    runs-on: macos-latest
+    env:
+      # secrets are not readable in step-level `if:`; surface presence here.
+      HAS_MACOS_SIGNING: ${{ secrets.MACOS_CERT_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.26" }
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - run: bun install --frozen-lockfile
+      - name: Build desktop app (universal binary)
+        run: cd apps/desktop && wails build -platform darwin/universal
+      # Signing/notarization steps are skipped when the signing secrets are
+      # absent (e.g. forks), so unsigned releases still build.
+      - name: Import signing certificate
+        if: env.HAS_MACOS_SIGNING == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain
+          rm "$RUNNER_TEMP/cert.p12"
+          # fail here, not at codesign, if the p12 lacks a Developer ID identity.
+          security find-identity -v -p codesigning "$KEYCHAIN" | grep "Developer ID Application"
+      - name: Sign app
+        if: env.HAS_MACOS_SIGNING == 'true'
+        run: |
+          codesign --force --deep --options runtime --timestamp \
+            --sign "Developer ID Application" "apps/desktop/build/bin/App Cleaner.app"
+          codesign --verify --deep --strict --verbose=2 "apps/desktop/build/bin/App Cleaner.app"
+      - name: Package artifact (.dmg)
+        run: |
+          cd apps/desktop
+          npx --yes appdmg build/darwin/dmg/appdmg.json \
+            "build/bin/app-cleaner_${GITHUB_REF_NAME#v}_darwin_universal.dmg"
+      - name: Sign, notarize, and staple dmg
+        if: env.HAS_MACOS_SIGNING == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          DMG=(apps/desktop/build/bin/*.dmg)
+          codesign --force --timestamp --sign "Developer ID Application" "${DMG[0]}"
+          xcrun notarytool submit "${DMG[0]}" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" --wait
+          # staple fails if notarization did not fully succeed, failing the job.
+          xcrun stapler staple "${DMG[0]}"
+          xcrun stapler validate "${DMG[0]}"
+      # Guarded so a tag cut before Plan 2 lands still releases the GUI alone;
+      # softprops/action-gh-release does not fail on an unmatched glob by
+      # default (fail_on_unmatched_files is false), so no CLI tarball simply
+      # means the release ships with the .dmg only.
+      - name: Build CLI (universal binary)
+        if: hashFiles('apps/cli/go.mod') != ''
+        run: |
+          cd apps/cli
+          VERSION="${GITHUB_REF_NAME#v}"
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o bin/app-cleaner-amd64 .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=${VERSION}" -o bin/app-cleaner-arm64 .
+          lipo -create -output bin/app-cleaner bin/app-cleaner-amd64 bin/app-cleaner-arm64
+          rm bin/app-cleaner-amd64 bin/app-cleaner-arm64
+      - name: Sign CLI binary
+        if: hashFiles('apps/cli/go.mod') != '' && env.HAS_MACOS_SIGNING == 'true'
+        run: codesign --force --options runtime --timestamp --sign "Developer ID Application" apps/cli/bin/app-cleaner
+      - name: Package CLI tarball
+        if: hashFiles('apps/cli/go.mod') != ''
+        run: |
+          cd apps/cli/bin
+          tar -czf "app-cleaner-cli_${GITHUB_REF_NAME#v}_darwin_universal.tar.gz" app-cleaner
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/desktop/build/bin/*.dmg
+            apps/cli/bin/*.tar.gz
