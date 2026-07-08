@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import FirstRun from './views/FirstRun';
 import SmartScan from './views/SmartScan';
 import CategoryDetail from './views/CategoryDetail';
+import Uninstaller from './views/Uninstaller';
 import { CleanFlow } from './components/CleanFlow';
 import { useUiStore } from './stores/uiStore';
 
@@ -46,7 +47,7 @@ function App() {
       <main className="min-w-0 flex-1 overflow-y-auto">
         {view === 'smart-scan' && <SmartScan />}
         {view === 'category' && <CategoryDetail />}
-        {view === 'uninstaller' && <Placeholder title="Uninstaller" />}
+        {view === 'uninstaller' && <Uninstaller />}
         {view === 'maintenance' && <Placeholder title="Maintenance" />}
         {view === 'backups' && <Placeholder title="Backups" />}
         {view === 'settings' && <Placeholder title="Settings" />}
