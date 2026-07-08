@@ -2,12 +2,12 @@
 mac-cleaner-cli/
 
 # Go / Wails
-build/bin/
+apps/desktop/build/bin/
 *.log
 
 # Node
 node_modules/
-frontend/dist/
+apps/desktop/frontend/dist/
 
 # OS
 .DS_Store
