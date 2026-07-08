@@ -8,6 +8,9 @@ apps/desktop/build/bin/
 # Node
 node_modules/
 apps/desktop/frontend/dist/
+
+# Wails build cache marker (regenerated every build)
+apps/desktop/frontend/package.json.md5
 packages/shared/dist/
 apps/web/.next/
 apps/web/out/

@@ -5,7 +5,6 @@ go 1.26
 require (
 	github.com/GuilhermeVozniak/app-cleaner/packages/engine v0.0.0
 	github.com/wailsapp/wails/v2 v2.13.0
-	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9
 )
 
 replace github.com/GuilhermeVozniak/app-cleaner/packages/engine => ../../packages/engine
@@ -39,4 +38,5 @@ require (
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
+	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
 )
