@@ -37,3 +37,48 @@ func ContractHome(path, home string) string {
 	}
 	return "~" + strings.TrimPrefix(path, home)
 }
+
+// TruncateName truncates name to maxLength runes, preserving its extension
+// and placing an ellipsis in the middle of the basename. Exact port of the
+// original CLI's truncateFileName (mac-cleaner-cli src/utils/paths.ts;
+// porting-notes.json §utils/paths) — used for the file picker's
+// FILE_NAME_WIDTH=35 column and any other fixed-width name display.
+func TruncateName(name string, maxLength int) string {
+	runes := []rune(name)
+	if len(runes) <= maxLength {
+		return name
+	}
+
+	lastDot := strings.LastIndex(name, ".")
+	var ext, base string
+	if lastDot > 0 {
+		ext = name[lastDot:]
+		base = name[:lastDot]
+	} else {
+		ext = ""
+		base = name
+	}
+	baseRunes := []rune(base)
+	extRunes := []rune(ext)
+
+	const ellipsis = "..."
+	available := maxLength - len(extRunes) - len(ellipsis)
+
+	if available <= 0 {
+		cut := maxLength - len(ellipsis)
+		if cut < 0 {
+			cut = 0
+		}
+		if cut > len(runes) {
+			cut = len(runes)
+		}
+		return string(runes[:cut]) + ellipsis
+	}
+
+	firstLen := (available + 1) / 2 // ceil(available/2)
+	lastLen := available / 2        // floor(available/2)
+
+	first := string(baseRunes[:firstLen])
+	last := string(baseRunes[len(baseRunes)-lastLen:])
+	return first + ellipsis + last + ext
+}
