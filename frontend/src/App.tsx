@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { CheckFDA } from '../wailsjs/go/main/App';
 import Sidebar from './components/Sidebar';
 import FirstRun from './views/FirstRun';
+import SmartScan from './views/SmartScan';
 import { useUiStore } from './stores/uiStore';
 
 // Placeholder panes — swapped for real views by later tasks:
@@ -41,7 +42,7 @@ function App() {
     <div className="flex h-full bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
       <Sidebar />
       <main className="min-w-0 flex-1 overflow-y-auto">
-        {view === 'smart-scan' && <Placeholder title="Smart Scan" />}
+        {view === 'smart-scan' && <SmartScan />}
         {view === 'category' && <Placeholder title="Category" />}
         {view === 'uninstaller' && <Placeholder title="Uninstaller" />}
         {view === 'maintenance' && <Placeholder title="Maintenance" />}
