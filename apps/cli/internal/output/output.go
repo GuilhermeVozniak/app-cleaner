@@ -166,3 +166,55 @@ func EncodeScanJSON(summary core.ScanSummary, verbose bool) ScanJSON {
 func MarshalScanJSON(summary core.ScanSummary, verbose bool) ([]byte, error) {
 	return json.MarshalIndent(EncodeScanJSON(summary, verbose), "", "  ")
 }
+
+// CleanJSONResult is one category's result in the `clean --json` output.
+type CleanJSONResult struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	CleanedItems int      `json:"cleanedItems"`
+	FreedSpace   int64    `json:"freedSpace"`
+	Errors       []string `json:"errors,omitempty"`
+}
+
+// CleanJSON is the `clean --json` payload shape. The original CLI
+// (mac-cleaner-cli src/commands/clean.ts) has no documented --json flag in
+// porting-notes.json; this shape is a deliberate extrapolation that mirrors
+// EncodeScanJSON's id/name convention and reuses the engine's own
+// totalFreedSpace/totalCleanedItems/totalErrors field names verbatim so the
+// two JSON outputs read consistently for scripting (design spec §8.4).
+type CleanJSON struct {
+	Results           []CleanJSONResult `json:"results"`
+	TotalFreedSpace   int64             `json:"totalFreedSpace"`
+	TotalCleanedItems int               `json:"totalCleanedItems"`
+	TotalErrors       int               `json:"totalErrors"`
+}
+
+// EncodeCleanJSON builds the `clean --json` payload from an engine
+// core.CleanSummary. A per-category result is omitted only when it cleaned
+// zero items AND reported zero errors (nothing happened for it).
+func EncodeCleanJSON(summary core.CleanSummary) CleanJSON {
+	out := CleanJSON{
+		Results:           []CleanJSONResult{},
+		TotalFreedSpace:   summary.TotalFreedSpace,
+		TotalCleanedItems: summary.TotalCleanedItems,
+		TotalErrors:       summary.TotalErrors,
+	}
+	for _, r := range summary.Results {
+		if r.CleanedItems == 0 && len(r.Errors) == 0 {
+			continue
+		}
+		out.Results = append(out.Results, CleanJSONResult{
+			ID:           string(r.Category.ID),
+			Name:         r.Category.Name,
+			CleanedItems: r.CleanedItems,
+			FreedSpace:   r.FreedSpace,
+			Errors:       r.Errors,
+		})
+	}
+	return out
+}
+
+// MarshalCleanJSON renders EncodeCleanJSON's result with a 2-space indent.
+func MarshalCleanJSON(summary core.CleanSummary) ([]byte, error) {
+	return json.MarshalIndent(EncodeCleanJSON(summary), "", "  ")
+}

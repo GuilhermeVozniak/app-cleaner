@@ -245,3 +245,71 @@ func TestEncodeScanJSONEmptyCategoriesSliceNotNil(t *testing.T) {
 		t.Errorf("marshaled empty summary = %s, want it to contain \"categories\":[]", b)
 	}
 }
+
+func cleanSummaryFixture() core.CleanSummary {
+	return core.CleanSummary{
+		Results: []core.CleanResult{
+			{
+				Category:     core.Category{ID: "trash", Name: "Trash"},
+				CleanedItems: 3,
+				FreedSpace:   2048,
+				Errors:       nil,
+			},
+			{
+				Category:     core.Category{ID: "docker", Name: "Docker"},
+				CleanedItems: 0,
+				FreedSpace:   0,
+				Errors:       []string{"Failed to remove 2 items (2 EPERM)"},
+			},
+			{
+				Category:     core.Category{ID: "system-cache", Name: "System Cache"},
+				CleanedItems: 0,
+				FreedSpace:   0,
+				Errors:       nil,
+			},
+		},
+		TotalFreedSpace:   2048,
+		TotalCleanedItems: 3,
+		TotalErrors:       1,
+	}
+}
+
+const wantCleanJSON = `{
+  "results": [
+    {
+      "id": "trash",
+      "name": "Trash",
+      "cleanedItems": 3,
+      "freedSpace": 2048
+    },
+    {
+      "id": "docker",
+      "name": "Docker",
+      "cleanedItems": 0,
+      "freedSpace": 0,
+      "errors": [
+        "Failed to remove 2 items (2 EPERM)"
+      ]
+    }
+  ],
+  "totalFreedSpace": 2048,
+  "totalCleanedItems": 3,
+  "totalErrors": 1
+}`
+
+func TestMarshalCleanJSONOmitsZeroActivityCategoryAndErrorsKey(t *testing.T) {
+	got, err := MarshalCleanJSON(cleanSummaryFixture())
+	if err != nil {
+		t.Fatalf("MarshalCleanJSON error = %v", err)
+	}
+	if string(got) != wantCleanJSON {
+		t.Errorf("MarshalCleanJSON =\n%s\nwant:\n%s", got, wantCleanJSON)
+	}
+}
+
+func TestEncodeCleanJSONEmptyResultsSliceNotNil(t *testing.T) {
+	got := EncodeCleanJSON(core.CleanSummary{})
+	if got.Results == nil {
+		t.Error("EncodeCleanJSON(empty).Results = nil, want non-nil empty slice")
+	}
+}
