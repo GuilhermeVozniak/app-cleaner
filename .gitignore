@@ -9,6 +9,8 @@ apps/desktop/build/bin/
 node_modules/
 apps/desktop/frontend/dist/
 packages/shared/dist/
+apps/web/.next/
+apps/web/out/
 
 # OS
 .DS_Store
