@@ -3,6 +3,7 @@ mac-cleaner-cli/
 
 # Go / Wails
 apps/desktop/build/bin/
+apps/cli/bin/
 *.log
 
 # Node
