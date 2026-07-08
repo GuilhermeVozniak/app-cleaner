@@ -192,6 +192,16 @@ func (a *App) GroupItems(id string, expand map[string]int) []grouping.DisplayRow
 	return grouping.GroupItems(r.Items, a.home, expand, 5, false)
 }
 
+// GetHome returns the current user's home directory ("" if unresolvable).
+// Frontend display helper: lets item rows contract $HOME to "~".
+func (a *App) GetHome() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return home
+}
+
 // ---------------------------------------------------------------------------
 // Cleaning
 // ---------------------------------------------------------------------------

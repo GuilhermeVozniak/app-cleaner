@@ -12,3 +12,12 @@ export function formatSize(bytes: number): string {
   const value = bytes / Math.pow(1024, i);
   return `${value.toFixed(i > 0 ? 1 : 0)} ${UNITS[i]}`;
 }
+
+/** Middle-elide a string to exactly maxLen chars using '...' when it overflows. */
+export function middleTruncate(s: string, maxLen: number): string {
+  if (s.length <= maxLen) return s;
+  const keep = maxLen - 3;
+  const head = Math.ceil(keep / 2);
+  const tail = Math.floor(keep / 2);
+  return `${s.slice(0, head)}...${s.slice(s.length - tail)}`;
+}

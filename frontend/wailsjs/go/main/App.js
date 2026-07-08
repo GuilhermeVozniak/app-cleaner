@@ -42,6 +42,10 @@ export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
+export function GetHome() {
+  return window['go']['main']['App']['GetHome']();
+}
+
 export function GetScanResult(arg1) {
   return window['go']['main']['App']['GetScanResult'](arg1);
 }

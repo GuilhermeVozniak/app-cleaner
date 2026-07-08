@@ -28,6 +28,8 @@ export function GetCategories():Promise<Array<core.Category>>;
 
 export function GetConfig():Promise<config.Config>;
 
+export function GetHome():Promise<string>;
+
 export function GetScanResult(arg1:string):Promise<core.ScanResult>;
 
 export function GroupItems(arg1:string,arg2:Record<string, number>):Promise<Array<grouping.DisplayRow>>;

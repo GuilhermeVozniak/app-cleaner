@@ -3,6 +3,7 @@ import { CheckFDA } from '../wailsjs/go/main/App';
 import Sidebar from './components/Sidebar';
 import FirstRun from './views/FirstRun';
 import SmartScan from './views/SmartScan';
+import CategoryDetail from './views/CategoryDetail';
 import { useUiStore } from './stores/uiStore';
 
 // Placeholder panes — swapped for real views by later tasks:
@@ -43,7 +44,7 @@ function App() {
       <Sidebar />
       <main className="min-w-0 flex-1 overflow-y-auto">
         {view === 'smart-scan' && <SmartScan />}
-        {view === 'category' && <Placeholder title="Category" />}
+        {view === 'category' && <CategoryDetail />}
         {view === 'uninstaller' && <Placeholder title="Uninstaller" />}
         {view === 'maintenance' && <Placeholder title="Maintenance" />}
         {view === 'backups' && <Placeholder title="Backups" />}
