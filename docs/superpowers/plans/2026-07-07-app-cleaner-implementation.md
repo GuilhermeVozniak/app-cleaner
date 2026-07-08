@@ -15,7 +15,7 @@
 
 ## Global Constraints
 
-- Go 1.26; Wails v2.12 (`github.com/wailsapp/wails/v2`); module path `github.com/guhcostan/app-cleaner`
+- Go 1.26; Wails v2.13 (originally v2.12; bumped by upstream release — see commit 44a251a) (`github.com/wailsapp/wails/v2`); module path `github.com/guhcostan/app-cleaner`
 - Frontend: React 18 + TypeScript + Vite (Wails `react-ts` template), Tailwind CSS v4 via `@tailwindcss/vite`, `zustand`, `lucide-react`; package manager npm
 - App name **App Cleaner**; bundle id `com.guhcostan.appcleaner`; window 1150×740, hidden-inset title bar
 - macOS-only; engine packages (`internal/*`) never import Wails; only `main.go`/`app.go` touch the Wails runtime
