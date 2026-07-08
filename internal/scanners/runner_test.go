@@ -71,6 +71,69 @@ func TestRunScansTotalsPanicIsolationAndProgress(t *testing.T) {
 	}
 }
 
+func TestRunScansConcurrencyZeroClampsToOne(t *testing.T) {
+	opts := testOptions(t)
+	ids := []core.CategoryID{"trash", "downloads"}
+
+	sum := RunScans(context.Background(), ids, opts, 0, nil)
+
+	if len(sum.Results) != len(ids) {
+		t.Fatalf("len(Results) = %d, want %d (concurrency=0 must clamp to 1, not hang)", len(sum.Results), len(ids))
+	}
+	for i, id := range ids {
+		if sum.Results[i].Category.ID != id {
+			t.Errorf("Results[%d].Category.ID = %q, want %q", i, sum.Results[i].Category.ID, id)
+		}
+	}
+}
+
+// TestRunScansSerialModeProgressAndResults covers concurrency=1 ("serial
+// mode"): scanners run strictly in input order (FIFO semaphore admission —
+// the CLI's parallel:false contract), onResult fires once per category with
+// completed=1..total strictly increasing, and Results[] stays positionally
+// keyed to the input ids.
+func TestRunScansSerialModeProgressAndResults(t *testing.T) {
+	catA := core.Category{ID: "fake-serial-a"}
+	catB := core.Category{ID: "fake-serial-b"}
+	registerFake(t, fakeScanner{cat: catA, scan: func(ctx context.Context, opts Options) core.ScanResult {
+		return core.ScanResult{Category: catA}
+	}})
+	registerFake(t, fakeScanner{cat: catB, scan: func(ctx context.Context, opts Options) core.ScanResult {
+		return core.ScanResult{Category: catB}
+	}})
+
+	ids := []core.CategoryID{"fake-serial-a", "fake-serial-b"}
+	type call struct {
+		completed, total int
+		id               core.CategoryID
+	}
+	var calls []call
+	sum := RunScans(context.Background(), ids, Options{}, 1, func(completed, total int, r core.ScanResult) {
+		calls = append(calls, call{completed, total, r.Category.ID})
+	})
+
+	if len(sum.Results) != len(ids) {
+		t.Fatalf("len(Results) = %d, want %d", len(sum.Results), len(ids))
+	}
+	for i, id := range ids {
+		if sum.Results[i].Category.ID != id {
+			t.Errorf("Results[%d].Category.ID = %q, want %q (positional guarantee)", i, sum.Results[i].Category.ID, id)
+		}
+	}
+
+	if len(calls) != len(ids) {
+		t.Fatalf("onResult called %d times, want %d", len(calls), len(ids))
+	}
+	for i, c := range calls {
+		if c.completed != i+1 || c.total != len(ids) {
+			t.Fatalf("call %d = %+v, want completed=%d total=%d (strictly increasing)", i, c, i+1, len(ids))
+		}
+		if c.id != ids[i] {
+			t.Errorf("call %d reported category %s, want %s (serial mode runs in input order)", i, c.id, ids[i])
+		}
+	}
+}
+
 func TestRunScansUnknownCategory(t *testing.T) {
 	sum := RunScans(context.Background(), []core.CategoryID{"no-such"}, Options{}, 4, nil)
 	if len(sum.Results) != 1 {
