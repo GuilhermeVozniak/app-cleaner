@@ -1,89 +1,117 @@
-import { create } from 'zustand';
-import { EventsOn } from '../../wailsjs/runtime/runtime';
-import { CancelClean, StartClean } from '../../wailsjs/go/main/App';
-import { selectedPaths, useScanStore } from './scanStore';
-import type { CleanDoneEvent, CleanProgressEvent, CleanSummary } from '../lib/types';
+import { create } from 'zustand'
+import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { StartClean, CancelClean } from '../../wailsjs/go/main/App'
+import type { CleanSummary } from '../lib/types'
 
-/** Mirrors main.CleanOptions JSON tags. */
-export interface CleanOptions {
-  dryRun: boolean;
-  backup: boolean;
+export interface CleanProgress {
+  current: number
+  total: number
+  categoryId: string
+  itemName: string
 }
 
-export interface CleanState {
-  status: 'idle' | 'confirming' | 'cleaning' | 'done';
-  progress: { current: number; total: number; categoryId: string; itemName: string };
-  summary?: CleanSummary;
-  notBackedUp: string[];
-  error?: string;
-  cancelled: boolean;
-  openConfirm: () => void;
-  startClean: (opts: CleanOptions) => Promise<void>;
-  cancelClean: () => void;
-  reset: () => void;
+export interface CleanDonePayload {
+  summary?: CleanSummary & { notBackedUp?: string[] }
+  notBackedUp?: string[] // tolerated at top level too
+  cancelled?: boolean
+  error?: string
 }
 
-const initialState = {
-  status: 'idle' as const,
-  progress: { current: 0, total: 0, categoryId: '', itemName: '' },
-  summary: undefined as CleanSummary | undefined,
-  notBackedUp: [] as string[],
-  error: undefined as string | undefined,
+export interface BackupProgress {
+  current: number
+  total: number
+  itemName: string
+}
+
+const initialProgress: CleanProgress = { current: 0, total: 0, categoryId: '', itemName: '' }
+
+interface CleanState {
+  status: 'idle' | 'confirming' | 'cleaning' | 'done'
+  progress: CleanProgress
+  backingUp: boolean // true while backup:progress events drive the overlay
+  summary?: CleanSummary
+  notBackedUp: string[]
+  cancelled: boolean
+  error?: string
+  lastDryRun: boolean
+  openConfirm: () => void
+  startClean: (
+    selection: Record<string, string[]>,
+    opts: { dryRun: boolean; backup: boolean },
+  ) => Promise<void>
+  cancelClean: () => void
+  reset: () => void
+}
+
+export const useCleanStore = create<CleanState>()((set) => ({
+  status: 'idle',
+  progress: initialProgress,
+  backingUp: false,
+  summary: undefined,
+  notBackedUp: [],
   cancelled: false,
-};
-
-export const useCleanStore = create<CleanState>((set) => ({
-  ...initialState,
-
+  error: undefined,
+  lastDryRun: false,
   openConfirm: () => set({ status: 'confirming' }),
-
-  startClean: async (opts) => {
-    const { results, selected } = useScanStore.getState();
-    const selection = selectedPaths(results, selected);
+  startClean: async (selection, opts) => {
     set({
       status: 'cleaning',
-      progress: { current: 0, total: 0, categoryId: '', itemName: '' },
+      progress: initialProgress,
+      backingUp: false,
       summary: undefined,
       notBackedUp: [],
-      error: undefined,
       cancelled: false,
-    });
+      error: undefined,
+      lastDryRun: opts.dryRun,
+    })
     try {
-      await StartClean(selection, opts);
+      await StartClean(selection, opts)
     } catch (e) {
-      set({ status: 'done', error: String(e) });
+      // e.g. "a clean is already running" — surface it and finish the flow
+      set({ status: 'done', error: String(e) })
     }
   },
-
   cancelClean: () => {
-    void CancelClean();
+    void CancelClean()
   },
+  reset: () =>
+    set({
+      status: 'idle',
+      progress: initialProgress,
+      backingUp: false,
+      summary: undefined,
+      notBackedUp: [],
+      cancelled: false,
+      error: undefined,
+      lastDryRun: false,
+    }),
+}))
 
-  reset: () => set({ ...initialState }),
-}));
-
-/** Exported for tests: applied on every `clean:progress` event. */
-export function handleCleanProgress(ev: CleanProgressEvent): void {
-  useCleanStore.setState({
-    progress: {
-      current: ev.current,
-      total: ev.total,
-      categoryId: ev.categoryId,
-      itemName: ev.itemName,
-    },
-  });
+// Exported for tests; also registered as the live Wails event handlers below.
+export function handleCleanProgress(data: CleanProgress): void {
+  useCleanStore.setState({ status: 'cleaning', backingUp: false, progress: data })
 }
 
-/** Exported for tests: applied on `clean:done`. */
-export function handleCleanDone(ev: CleanDoneEvent): void {
+// backup:progress drives the same overlay while items are moved into the backup
+// session (before deletion); CleanFlow prefixes the item name with "Backing up: ".
+export function handleBackupProgress(data: BackupProgress): void {
+  useCleanStore.setState({
+    status: 'cleaning',
+    backingUp: true,
+    progress: { current: data.current, total: data.total, categoryId: '', itemName: data.itemName },
+  })
+}
+
+export function handleCleanDone(data: CleanDonePayload): void {
   useCleanStore.setState({
     status: 'done',
-    summary: ev.summary,
-    notBackedUp: ev.notBackedUp ?? [],
-    cancelled: ev.cancelled === true,
-    error: ev.error || undefined,
-  });
+    summary: data.summary,
+    notBackedUp: data.summary?.notBackedUp ?? data.notBackedUp ?? [],
+    cancelled: Boolean(data.cancelled),
+    error: data.error,
+  })
 }
 
-EventsOn('clean:progress', handleCleanProgress as (...data: any) => void);
-EventsOn('clean:done', handleCleanDone as (...data: any) => void);
+EventsOn('clean:progress', handleCleanProgress)
+EventsOn('backup:progress', handleBackupProgress)
+EventsOn('clean:done', handleCleanDone)

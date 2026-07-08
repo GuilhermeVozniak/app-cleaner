@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import FirstRun from './views/FirstRun';
 import SmartScan from './views/SmartScan';
 import CategoryDetail from './views/CategoryDetail';
+import { CleanFlow } from './components/CleanFlow';
 import { useUiStore } from './stores/uiStore';
 
 // Placeholder panes — swapped for real views by later tasks:
@@ -50,6 +51,7 @@ function App() {
         {view === 'backups' && <Placeholder title="Backups" />}
         {view === 'settings' && <Placeholder title="Settings" />}
       </main>
+      <CleanFlow />
     </div>
   );
 }
