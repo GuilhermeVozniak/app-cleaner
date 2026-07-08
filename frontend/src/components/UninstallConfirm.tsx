@@ -11,7 +11,7 @@ export interface UninstallConfirmProps {
 
 export function UninstallConfirm({ apps, onCancel, onConfirm }: UninstallConfirmProps) {
   const [dryRun, setDryRun] = useState(false)
-  const totals = selectionTotals(apps, new Set(apps.map((a) => a.name)))
+  const totals = selectionTotals(apps, new Set(apps.map((a) => a.path)))
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
@@ -19,7 +19,7 @@ export function UninstallConfirm({ apps, onCancel, onConfirm }: UninstallConfirm
         <h2 className="text-lg font-semibold">Uninstall applications</h2>
         <ul className="mt-4 space-y-3">
           {apps.map((app) => (
-            <li key={app.name} className="text-sm">
+            <li key={app.path} className="text-sm">
               <span className="font-medium">✗ {app.name}</span>{' '}
               <span className="text-zinc-500 dark:text-zinc-400">({formatSize(app.totalSize)})</span>
               <ul className="mt-1 space-y-0.5">

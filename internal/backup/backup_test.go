@@ -89,6 +89,42 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestBackupItemsCancelMidBatchLeavesRemainingUntouched(t *testing.T) {
+	home := t.TempDir()
+	m := NewManager(home)
+	items := make([]core.CleanableItem, 3)
+	for i, n := range []string{"a.txt", "b.txt", "c.txt"} {
+		p := filepath.Join(home, "Library", "Caches", n)
+		writeFile(t, p, "x")
+		items[i] = core.CleanableItem{Path: p, Size: 1, Name: n}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// BackupItems fires progress BEFORE the ctx.Err() check and BEFORE the
+	// item's own rename, so cancelling during the 2nd item's progress call
+	// stops the loop before that item (or the 3rd) is ever touched.
+	out := m.BackupItems(ctx, home, items, func(current, total int, it core.CleanableItem) {
+		if current == 2 {
+			cancel()
+		}
+	})
+
+	if len(out.Moved) != 1 || out.Moved[0] != items[0].Path {
+		t.Fatalf("Moved = %v, want only the first item (renamed before cancellation)", out.Moved)
+	}
+	if len(out.NotBackedUp) != 0 {
+		t.Fatalf("NotBackedUp = %v, want empty: b.txt/c.txt were never reached, not refused", out.NotBackedUp)
+	}
+	// b.txt and c.txt must still be at their original location: cancellation
+	// must leave them completely untouched (neither moved nor recorded).
+	for _, it := range items[1:] {
+		if _, err := os.Stat(it.Path); err != nil {
+			t.Fatalf("item %s must remain untouched after cancellation: %v", it.Path, err)
+		}
+	}
+}
+
 func TestNonHomeItemNotBackedUp(t *testing.T) {
 	home := t.TempDir()
 	other := t.TempDir()

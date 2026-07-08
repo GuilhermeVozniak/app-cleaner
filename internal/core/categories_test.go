@@ -23,7 +23,7 @@ func TestCategoriesRegistryComplete(t *testing.T) {
 		{"browser-cache", "Browser Cache", "Browsers", "Cache from Chrome, Safari, Firefox, and Arc", "safe", "", false},
 		{"dev-cache", "Development Cache", "Development", "npm, yarn, pip, Xcode DerivedData, CocoaPods cache", "moderate", "Projects will need to rebuild/reinstall dependencies", false},
 		{"homebrew", "Homebrew Cache", "Development", "Homebrew download cache and old versions", "safe", "", false},
-		{"docker", "Docker", "Development", "Unused Docker images, containers, and volumes", "safe", "", false},
+		{"docker", "Docker", "Development", "Unused Docker images, containers, and build cache", "safe", "", false},
 		{"ios-backups", "iOS Backups", "Storage", "iPhone and iPad backup files", "risky", "DANGER: You may lose important device backups permanently!", false},
 		{"mail-attachments", "Mail Attachments", "Storage", "Downloaded email attachments from Mail.app", "risky", "May contain important documents and files", false},
 		{"language-files", "Language Files", "System Junk", "Unused language localizations in applications", "risky", "May break apps if you switch system language", false},

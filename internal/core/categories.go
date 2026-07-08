@@ -52,7 +52,7 @@ var Categories = map[CategoryID]Category{
 	},
 	"docker": {
 		ID: "docker", Name: "Docker", Group: "Development",
-		Description: "Unused Docker images, containers, and volumes",
+		Description: "Unused Docker images, containers, and build cache",
 		SafetyLevel: SafetySafe,
 	},
 	"ios-backups": {

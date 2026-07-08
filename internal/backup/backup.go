@@ -40,11 +40,15 @@ type Info struct {
 
 // BackupOutcome reports what BackupItems did. Paths in NotBackedUp were NOT
 // moved (non-$HOME item, cross-volume EXDEV, or any rename error) — the
-// caller permanently deletes those itself.
+// caller permanently deletes those itself. Moved lists the paths actually
+// renamed into the backup session. On context cancellation the loop stops
+// partway through: items that are neither in Moved nor NotBackedUp were never
+// touched and must NOT be credited as cleaned/freed by the caller.
 type BackupOutcome struct {
 	SessionDir  string   `json:"sessionDir"`
 	BackedUp    int      `json:"backedUp"`
 	NotBackedUp []string `json:"notBackedUp"`
+	Moved       []string `json:"moved"`
 }
 
 // RestoreResult reports a Restore run.
@@ -106,6 +110,7 @@ func (m *Manager) BackupItems(ctx context.Context, home string, items []core.Cle
 			continue
 		}
 		out.BackedUp++
+		out.Moved = append(out.Moved, it.Path)
 	}
 	return out
 }

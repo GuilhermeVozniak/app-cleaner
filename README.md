@@ -40,7 +40,7 @@ for Trash/Safari/Mail categories.
 
 ## Build
 
-Requirements: macOS 11+, Go 1.26+, Node 18+, Wails CLI v2.12 (`go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0`).
+Requirements: macOS 11+, Go 1.26+, Node 18+, Wails CLI v2.13 (`go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0`).
 
 ```bash
 wails doctor                             # verify toolchain

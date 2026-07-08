@@ -75,7 +75,7 @@ describe('<Uninstaller />', () => {
   it('disables Uninstall with a "Quit the app first" tooltip while a selected app is running', async () => {
     render(<Uninstaller />)
     await screen.findByText('BusyApp')
-    fireEvent.click(screen.getByLabelText('Select BusyApp'))
+    fireEvent.click(screen.getByLabelText('Select BusyApp (/Applications/BusyApp.app)'))
     const btn = screen.getByRole('button', { name: /uninstall 1 app/i }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
     expect(btn.title).toBe('Quit the app first')
@@ -84,7 +84,7 @@ describe('<Uninstaller />', () => {
   it('enables Uninstall for a non-running selection and confirms into StartUninstall', async () => {
     render(<Uninstaller />)
     await screen.findByText('OldApp')
-    fireEvent.click(screen.getByLabelText('Select OldApp'))
+    fireEvent.click(screen.getByLabelText('Select OldApp (/Applications/OldApp.app)'))
     const btn = screen.getByRole('button', { name: /uninstall 1 app/i }) as HTMLButtonElement
     expect(btn.disabled).toBe(false)
     fireEvent.click(btn)
@@ -93,7 +93,7 @@ describe('<Uninstaller />', () => {
     expect(screen.getByText(/143\.1 MB will be freed \(2 items\)/)).toBeDefined()
     fireEvent.click(screen.getByLabelText(/dry run/i))
     fireEvent.click(screen.getByRole('button', { name: /^uninstall$/i }))
-    expect(StartUninstallMock).toHaveBeenCalledWith(['OldApp'], true)
+    expect(StartUninstallMock).toHaveBeenCalledWith(['/Applications/OldApp.app'], true)
   })
 
   it('Re-check calls ListApps again', async () => {
@@ -102,5 +102,56 @@ describe('<Uninstaller />', () => {
     expect(ListAppsMock).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: /re-check/i }))
     expect(ListAppsMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keys selection by bundle path: two same-named apps at different paths get independent checkboxes, correct totals, and both get uninstalled', async () => {
+    const duplicateNameApps: AppInfo[] = [
+      {
+        name: 'OldApp',
+        path: '/Applications/OldApp.app',
+        bundleId: 'com.old.app',
+        appSize: 100_000_000,
+        relatedPaths: [],
+        totalSize: 100_000_000,
+        running: false,
+      },
+      {
+        name: 'OldApp',
+        path: '/Users/me/Applications/OldApp.app',
+        bundleId: 'com.old.app',
+        appSize: 50_000_000,
+        relatedPaths: [],
+        totalSize: 50_000_000,
+        running: false,
+      },
+    ]
+    ListAppsMock.mockResolvedValueOnce(duplicateNameApps)
+    render(<Uninstaller />)
+    expect(await screen.findAllByText('OldApp')).toHaveLength(2)
+
+    const checkboxes = screen.getAllByLabelText(/^Select OldApp/)
+    expect(checkboxes).toHaveLength(2)
+    expect(checkboxes[0].getAttribute('aria-label')).toBe('Select OldApp (/Applications/OldApp.app)')
+    expect(checkboxes[1].getAttribute('aria-label')).toBe('Select OldApp (/Users/me/Applications/OldApp.app)')
+
+    // Selecting the first path only: checkbox state is independent per path.
+    fireEvent.click(checkboxes[0])
+    expect((checkboxes[0] as HTMLInputElement).checked).toBe(true)
+    expect((checkboxes[1] as HTMLInputElement).checked).toBe(false)
+    expect(screen.getByRole('button', { name: /uninstall 1 app/i })).toBeDefined()
+
+    // Selecting the second path too: both are independently checked.
+    fireEvent.click(checkboxes[1])
+    expect((checkboxes[1] as HTMLInputElement).checked).toBe(true)
+    const btn = screen.getByRole('button', { name: /uninstall 2 apps/i }) as HTMLButtonElement
+    fireEvent.click(btn)
+
+    // Correct combined totals (100MB + 50MB, no related paths => 2 items).
+    expect(await screen.findByText(/143\.1 MB will be freed \(2 items\)/)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /^uninstall$/i }))
+    expect(StartUninstallMock).toHaveBeenCalledWith(
+      ['/Applications/OldApp.app', '/Users/me/Applications/OldApp.app'],
+      false,
+    )
   })
 })

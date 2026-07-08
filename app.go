@@ -1,16 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/guhcostan/app-cleaner/internal/backup"
 	"github.com/guhcostan/app-cleaner/internal/config"
@@ -239,11 +236,19 @@ func resolveSelection(lastScan map[core.CategoryID]core.ScanResult, selection ma
 	return out
 }
 
-// splitByBackup partitions the resolved selection after a backup pass: items
-// listed in notBackedUp were NOT moved into the backup session (non-$HOME or
-// EXDEV) and must be permanently deleted by their scanner; everything else was
-// moved off disk by backup.BackupItems and only needs summary credit.
-func splitByBackup(resolved map[core.CategoryID][]core.CleanableItem, notBackedUp []string) (moved, remaining map[core.CategoryID][]core.CleanableItem) {
+// splitByBackup partitions the resolved selection using a completed
+// backup.BackupOutcome: items in movedPaths were actually renamed off disk by
+// backup.BackupItems and only need summary credit; items in notBackedUp
+// (non-$HOME item, cross-volume EXDEV, or any rename error) were left in
+// place and must be permanently deleted by their scanner. An item in NEITHER
+// list was never reached before the backup pass was cancelled (ctx
+// cancellation) — it is untouched on disk and must be excluded entirely: not
+// credited as cleaned/freed, and not handed to the scanner for deletion.
+func splitByBackup(resolved map[core.CategoryID][]core.CleanableItem, movedPaths, notBackedUp []string) (moved, remaining map[core.CategoryID][]core.CleanableItem) {
+	movedSet := make(map[string]bool, len(movedPaths))
+	for _, p := range movedPaths {
+		movedSet[p] = true
+	}
 	skip := make(map[string]bool, len(notBackedUp))
 	for _, p := range notBackedUp {
 		skip[p] = true
@@ -252,10 +257,14 @@ func splitByBackup(resolved map[core.CategoryID][]core.CleanableItem, notBackedU
 	remaining = make(map[core.CategoryID][]core.CleanableItem)
 	for id, items := range resolved {
 		for _, it := range items {
-			if skip[it.Path] {
-				remaining[id] = append(remaining[id], it)
-			} else {
+			switch {
+			case movedSet[it.Path]:
 				moved[id] = append(moved[id], it)
+			case skip[it.Path]:
+				remaining[id] = append(remaining[id], it)
+			default:
+				// Never reached before the backup pass was cancelled: leave
+				// untouched — no credit, no deletion.
 			}
 		}
 	}
@@ -354,7 +363,7 @@ func (a *App) runClean(ctx context.Context, resolved map[core.CategoryID][]core.
 		if notBackedUp == nil {
 			notBackedUp = []string{}
 		}
-		movedByCat, remaining = splitByBackup(backupable, outcome.NotBackedUp)
+		movedByCat, remaining = splitByBackup(backupable, outcome.Moved, outcome.NotBackedUp)
 		for id, items := range direct {
 			remaining[id] = items
 		}
@@ -423,21 +432,24 @@ func (a *App) ListApps() []uninstall.AppInfo {
 	return apps
 }
 
-// StartUninstall uninstalls the named apps (matched against the last ListApps
-// result) in a goroutine, streaming uninstall:progress / uninstall:done.
-func (a *App) StartUninstall(names []string, dryRun bool) error {
+// StartUninstall uninstalls the apps at the given bundle paths (matched
+// against the last ListApps result) in a goroutine, streaming
+// uninstall:progress / uninstall:done. Paths are the unique key — matching by
+// display name would collapse two same-named apps installed in different
+// locations (e.g. /Applications vs ~/Applications) into one entry.
+func (a *App) StartUninstall(paths []string, dryRun bool) error {
 	a.mu.Lock()
 	if a.uninstalling {
 		a.mu.Unlock()
 		return errors.New("an uninstall is already running")
 	}
-	byName := make(map[string]uninstall.AppInfo, len(a.lastApps))
+	byPath := make(map[string]uninstall.AppInfo, len(a.lastApps))
 	for _, info := range a.lastApps {
-		byName[info.Name] = info
+		byPath[info.Path] = info
 	}
 	var apps []uninstall.AppInfo
-	for _, n := range names {
-		if info, ok := byName[n]; ok {
+	for _, p := range paths {
+		if info, ok := byPath[p]; ok {
 			apps = append(apps, info)
 		}
 	}
@@ -495,59 +507,34 @@ func (a *App) IsAppRunning(path string) bool {
 // GetAppIcon lazily resolves an app's icon as base64 PNG ("" on any failure).
 // Extraction (CFBundleIconFile), .icns → PNG conversion (/usr/bin/sips), and
 // per-bundle-path caching live in uninstall.AppIcon; the cache dir is created
-// in startup. execRunner satisfies uninstall.Runner (same method set as
-// maintenance.Runner).
+// in startup. maintenance.ExecRunner structurally satisfies uninstall.Runner
+// (identical method set), so it is reused directly here — no adapter needed.
 func (a *App) GetAppIcon(path string) string {
-	return uninstall.AppIcon(a.ctx, execRunner{}, path, a.iconCacheDir)
+	return uninstall.AppIcon(a.ctx, maintenance.ExecRunner{}, path, a.iconCacheDir)
 }
 
 // ---------------------------------------------------------------------------
 // Maintenance
 // ---------------------------------------------------------------------------
 
-// execRunner is the real maintenance.Runner — and, sharing the same method
-// set, uninstall.Runner (used by GetAppIcon): absolute binary path + arg
-// slice, never a shell.
-type execRunner struct{}
-
-func (execRunner) Run(ctx context.Context, timeout time.Duration, bin string, args ...string) (string, error) {
-	cctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	cmd := exec.CommandContext(cctx, bin, args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return stdout.String(), fmt.Errorf("%s: %w (stderr: %s)", bin, err, strings.TrimSpace(stderr.String()))
-	}
-	return stdout.String(), nil
-}
-
-// osaElevator is the real maintenance.Elevator: native macOS admin prompt via
-// osascript's `do shell script ... with administrator privileges`.
-type osaElevator struct{}
-
-func (osaElevator) RunElevated(ctx context.Context, shellScript string) (string, error) {
-	esc := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(shellScript)
-	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", "-e",
-		`do shell script "`+esc+`" with administrator privileges`)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return stdout.String(), fmt.Errorf("osascript: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
-	}
-	return stdout.String(), nil
-}
+// appRunner and appElevator are the ONE shared, tested Runner/Elevator used
+// by every maintenance call and by GetAppIcon: maintenance.ExecRunner (real
+// exec.CommandContext) and maintenance.OsaElevator, which enforces the 120s
+// elevatedTimeout (internal/maintenance/elevate.go) for every admin-privileged
+// call. Duplicating these locally previously bypassed that timeout.
+var (
+	appRunner   = maintenance.ExecRunner{}
+	appElevator = maintenance.OsaElevator{Runner: appRunner}
+)
 
 // RunMaintenance runs the short synchronous tasks ("dns" | "purge"). Time
 // Machine snapshot clearing is long-running and uses StartTMSnapshotsClear.
 func (a *App) RunMaintenance(task string) maintenance.Result {
 	switch task {
 	case "dns":
-		return maintenance.FlushDNS(a.ctx, osaElevator{})
+		return maintenance.FlushDNS(a.ctx, appElevator)
 	case "purge":
-		return maintenance.FreePurgeable(a.ctx, execRunner{}, osaElevator{})
+		return maintenance.FreePurgeable(a.ctx, appRunner, appElevator)
 	default:
 		return maintenance.Result{Success: false, Error: fmt.Sprintf("unknown maintenance task: %q", task)}
 	}
@@ -581,7 +568,7 @@ func (a *App) runTMClear(ctx context.Context) {
 		}
 	}()
 
-	result := maintenance.ClearTMSnapshots(ctx, execRunner{}, osaElevator{},
+	result := maintenance.ClearTMSnapshots(ctx, appRunner, appElevator,
 		func(done, total int, date, errMsg string) {
 			wruntime.EventsEmit(a.ctx, "maintenance:progress", map[string]any{
 				"done":  done,

@@ -94,16 +94,19 @@ export function Uninstaller() {
     }
   }, [])
 
-  const toggle = (name: string) =>
+  // Selection is keyed by bundle path, not display name: two installed apps
+  // can share a display name (e.g. the same app under /Applications and
+  // ~/Applications) but never a path.
+  const toggle = (path: string) =>
     setSelected((prev) => {
       const next = new Set(prev)
-      if (next.has(name)) next.delete(name)
-      else next.add(name)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
       return next
     })
 
   const blocked = anySelectedRunning(apps, selected)
-  const selectedApps = apps.filter((a) => selected.has(a.name))
+  const selectedApps = apps.filter((a) => selected.has(a.path))
 
   const confirmUninstall = async (dryRun: boolean) => {
     setStartError(null)
@@ -145,18 +148,18 @@ export function Uninstaller() {
         ) : (
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {apps.map((app) => (
-              <li key={app.name} className="py-2">
+              <li key={app.path} className="py-2">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
-                    aria-label={`Select ${app.name}`}
-                    checked={selected.has(app.name)}
-                    onChange={() => toggle(app.name)}
+                    aria-label={`Select ${app.name} (${app.path})`}
+                    checked={selected.has(app.path)}
+                    onChange={() => toggle(app.path)}
                   />
                   <RowIcon path={app.path} name={app.name} icon={icons[app.path]} onLoaded={cacheIcon} />
                   <button
                     className="flex-1 truncate text-left text-sm font-medium"
-                    onClick={() => setExpanded(expanded === app.name ? null : app.name)}
+                    onClick={() => setExpanded(expanded === app.path ? null : app.path)}
                   >
                     {app.name}
                   </button>
@@ -174,7 +177,7 @@ export function Uninstaller() {
                     {formatSize(app.totalSize)}
                   </span>
                 </div>
-                {expanded === app.name ? (
+                {expanded === app.path ? (
                   <ul className="mt-2 space-y-0.5 pl-8">
                     <li className="truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
                       {app.path} ({formatSize(app.appSize)})

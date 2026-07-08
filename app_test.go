@@ -77,7 +77,9 @@ func TestSplitByBackup(t *testing.T) {
 	resolved := resolveSelection(sampleScan(), map[string][]string{
 		"downloads": {"/home/u/Downloads/a.zip", "/home/u/Downloads/b.zip", "/home/u/Downloads/c.zip"},
 	})
-	moved, remaining := splitByBackup(resolved, []string{"/home/u/Downloads/b.zip"})
+	moved, remaining := splitByBackup(resolved,
+		[]string{"/home/u/Downloads/a.zip", "/home/u/Downloads/c.zip"},
+		[]string{"/home/u/Downloads/b.zip"})
 	if len(moved["downloads"]) != 2 {
 		t.Fatalf("expected 2 moved (backed-up) items, got %#v", moved)
 	}
@@ -87,6 +89,28 @@ func TestSplitByBackup(t *testing.T) {
 	}
 	if len(remaining["downloads"]) != 1 || remaining["downloads"][0].Path != "/home/u/Downloads/b.zip" {
 		t.Fatalf("expected only b.zip left for permanent delete, got %#v", remaining)
+	}
+}
+
+// TestSplitByBackup_CancelledItemsExcludedEntirely covers a mid-batch cancel:
+// an item that is in NEITHER outcome.Moved NOR outcome.NotBackedUp (the
+// backup loop stopped before reaching it) must never be credited as
+// cleaned/freed, and must never be handed to a scanner for deletion either —
+// it was never touched on disk.
+func TestSplitByBackup_CancelledItemsExcludedEntirely(t *testing.T) {
+	resolved := resolveSelection(sampleScan(), map[string][]string{
+		"downloads": {"/home/u/Downloads/a.zip", "/home/u/Downloads/b.zip", "/home/u/Downloads/c.zip"},
+	})
+	// Only a.zip was actually moved before cancellation; b.zip and c.zip were
+	// never reached (not moved, not notBackedUp).
+	moved, remaining := splitByBackup(resolved,
+		[]string{"/home/u/Downloads/a.zip"},
+		nil)
+	if len(moved["downloads"]) != 1 || moved["downloads"][0].Path != "/home/u/Downloads/a.zip" {
+		t.Fatalf("expected only a.zip credited as moved, got %#v", moved)
+	}
+	if len(remaining["downloads"]) != 0 {
+		t.Fatalf("uncancelled/untouched items must not be handed to the scanner for deletion, got %#v", remaining)
 	}
 }
 
