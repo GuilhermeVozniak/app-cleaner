@@ -7,9 +7,7 @@ describe("releaseAssetName", () => {
   });
 
   it("builds the exact cli asset name for version 1.0.0", () => {
-    expect(releaseAssetName("cli", "1.0.0")).toBe(
-      "app-cleaner-cli_1.0.0_darwin_universal.tar.gz",
-    );
+    expect(releaseAssetName("cli", "1.0.0")).toBe("app-cleaner-cli_1.0.0_darwin_universal.tar.gz");
   });
 });
 

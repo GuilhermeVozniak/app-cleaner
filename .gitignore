@@ -11,6 +11,10 @@ apps/desktop/frontend/dist/
 packages/shared/dist/
 apps/web/.next/
 apps/web/out/
+.turbo/
+out/
+.next/
+coverage/
 
 # OS
 .DS_Store

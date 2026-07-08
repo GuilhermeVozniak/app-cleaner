@@ -12,28 +12,115 @@ interface CategoryCopy {
 
 // Verbatim from packages/engine/core/categories.go — keep in sync (16 total).
 const CATEGORIES: CategoryCopy[] = [
-  { name: "User Cache Files", group: "System Junk", safety: "moderate", description: "Application caches stored in ~/Library/Caches" },
-  { name: "System Log Files", group: "System Junk", safety: "moderate", description: "System and application logs" },
-  { name: "Temporary Files", group: "System Junk", safety: "safe", description: "Temporary files in /tmp and /var/folders" },
+  {
+    name: "User Cache Files",
+    group: "System Junk",
+    safety: "moderate",
+    description: "Application caches stored in ~/Library/Caches",
+  },
+  {
+    name: "System Log Files",
+    group: "System Junk",
+    safety: "moderate",
+    description: "System and application logs",
+  },
+  {
+    name: "Temporary Files",
+    group: "System Junk",
+    safety: "safe",
+    description: "Temporary files in /tmp and /var/folders",
+  },
   { name: "Trash", group: "Storage", safety: "safe", description: "Files in the Trash bin" },
-  { name: "Old Downloads", group: "Storage", safety: "risky", description: "Downloads older than 30 days" },
-  { name: "Browser Cache", group: "Browsers", safety: "safe", description: "Cache from Chrome, Safari, Firefox, and Arc" },
-  { name: "Development Cache", group: "Development", safety: "moderate", description: "npm, yarn, pip, Xcode DerivedData, CocoaPods cache" },
-  { name: "Homebrew Cache", group: "Development", safety: "safe", description: "Homebrew download cache and old versions" },
-  { name: "Docker", group: "Development", safety: "safe", description: "Unused Docker images, containers, and build cache" },
-  { name: "iOS Backups", group: "Storage", safety: "risky", description: "iPhone and iPad backup files" },
-  { name: "Mail Attachments", group: "Storage", safety: "risky", description: "Downloaded email attachments from Mail.app" },
-  { name: "Language Files", group: "System Junk", safety: "risky", description: "Unused language localizations in applications" },
-  { name: "Large Files", group: "Large Files", safety: "risky", description: "Files larger than 500MB for review" },
-  { name: "Node Modules", group: "Development", safety: "moderate", description: "Orphaned node_modules in old projects" },
-  { name: "Duplicate Files", group: "Storage", safety: "risky", description: "Files with identical content" },
-  { name: "Orphaned Launch Agents", group: "System Junk", safety: "moderate", description: "Launch agents pointing to non-existent applications" },
+  {
+    name: "Old Downloads",
+    group: "Storage",
+    safety: "risky",
+    description: "Downloads older than 30 days",
+  },
+  {
+    name: "Browser Cache",
+    group: "Browsers",
+    safety: "safe",
+    description: "Cache from Chrome, Safari, Firefox, and Arc",
+  },
+  {
+    name: "Development Cache",
+    group: "Development",
+    safety: "moderate",
+    description: "npm, yarn, pip, Xcode DerivedData, CocoaPods cache",
+  },
+  {
+    name: "Homebrew Cache",
+    group: "Development",
+    safety: "safe",
+    description: "Homebrew download cache and old versions",
+  },
+  {
+    name: "Docker",
+    group: "Development",
+    safety: "safe",
+    description: "Unused Docker images, containers, and build cache",
+  },
+  {
+    name: "iOS Backups",
+    group: "Storage",
+    safety: "risky",
+    description: "iPhone and iPad backup files",
+  },
+  {
+    name: "Mail Attachments",
+    group: "Storage",
+    safety: "risky",
+    description: "Downloaded email attachments from Mail.app",
+  },
+  {
+    name: "Language Files",
+    group: "System Junk",
+    safety: "risky",
+    description: "Unused language localizations in applications",
+  },
+  {
+    name: "Large Files",
+    group: "Large Files",
+    safety: "risky",
+    description: "Files larger than 500MB for review",
+  },
+  {
+    name: "Node Modules",
+    group: "Development",
+    safety: "moderate",
+    description: "Orphaned node_modules in old projects",
+  },
+  {
+    name: "Duplicate Files",
+    group: "Storage",
+    safety: "risky",
+    description: "Files with identical content",
+  },
+  {
+    name: "Orphaned Launch Agents",
+    group: "System Junk",
+    safety: "moderate",
+    description: "Launch agents pointing to non-existent applications",
+  },
 ];
 
 const SAFETY_SECTIONS: { level: SafetyLevel; title: string; blurb: string }[] = [
-  { level: "safe", title: "Safe to clean", blurb: "Regenerated automatically — remove anytime with no downside." },
-  { level: "moderate", title: "Review recommended", blurb: "Reclaimable, but a few apps may need to rebuild state." },
-  { level: "risky", title: "Review carefully", blurb: "May contain files you actually want — inspect before deleting." },
+  {
+    level: "safe",
+    title: "Safe to clean",
+    blurb: "Regenerated automatically — remove anytime with no downside.",
+  },
+  {
+    level: "moderate",
+    title: "Review recommended",
+    blurb: "Reclaimable, but a few apps may need to rebuild state.",
+  },
+  {
+    level: "risky",
+    title: "Review carefully",
+    blurb: "May contain files you actually want — inspect before deleting.",
+  },
 ];
 
 function CategoryCard({ category }: { category: CategoryCopy }) {
@@ -94,7 +181,9 @@ export default function Home() {
             All releases
           </a>
         </div>
-        <p className="m-0 text-sm text-muted-foreground">macOS 13+ (Apple Silicon &amp; Intel) · signed &amp; notarized</p>
+        <p className="m-0 text-sm text-muted-foreground">
+          macOS 13+ (Apple Silicon &amp; Intel) · signed &amp; notarized
+        </p>
       </section>
 
       <section className="border-t border-card-border py-14" id="scan-categories">
@@ -133,15 +222,15 @@ export default function Home() {
           <div className="rounded-2xl border border-card-border bg-card p-6">
             <h3 className="m-0 mb-2 text-lg font-semibold">App uninstaller</h3>
             <p className="m-0 text-sm text-muted-foreground">
-              Remove an app and its leftover caches, preferences, and support files together,
-              with a running-app guard so you never uninstall from under yourself.
+              Remove an app and its leftover caches, preferences, and support files together, with a
+              running-app guard so you never uninstall from under yourself.
             </p>
           </div>
           <div className="rounded-2xl border border-card-border bg-card p-6">
             <h3 className="m-0 mb-2 text-lg font-semibold">Maintenance tasks</h3>
             <p className="m-0 text-sm text-muted-foreground">
-              Flush DNS cache, free purgeable disk space, and clear local Time Machine
-              snapshots in one click.
+              Flush DNS cache, free purgeable disk space, and clear local Time Machine snapshots in
+              one click.
             </p>
           </div>
           <div className="rounded-2xl border border-card-border bg-card p-6">
@@ -158,8 +247,8 @@ export default function Home() {
           Prefer the terminal?
         </h2>
         <p className="mx-auto mb-8 max-w-[640px] text-center text-muted-foreground">
-          App Cleaner ships a full-parity terminal CLI with the same interactive picker,
-          backups, and maintenance tasks as the GUI — built on the same engine.
+          App Cleaner ships a full-parity terminal CLI with the same interactive picker, backups,
+          and maintenance tasks as the GUI — built on the same engine.
         </p>
         <TerminalBlock />
       </section>
@@ -173,7 +262,10 @@ export default function Home() {
         </p>
         <p className="m-0 text-sm opacity-80">
           A native macOS port of{" "}
-          <a className="text-primary no-underline hover:underline" href="https://github.com/gabrielmaialva33/mac-cleaner-cli">
+          <a
+            className="text-primary no-underline hover:underline"
+            href="https://github.com/gabrielmaialva33/mac-cleaner-cli"
+          >
             mac-cleaner-cli
           </a>
           .
