@@ -16,9 +16,11 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "App Cleaner",
-		Width:  1150,
-		Height: 740,
+		Title:     "App Cleaner",
+		Width:     1150,
+		Height:    740,
+		MinWidth:  940,
+		MinHeight: 600,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
@@ -26,15 +28,17 @@ func main() {
 		Bind: []interface{}{
 			app,
 		},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "com.guhcostan.appcleaner",
+		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   "App Cleaner",
-				Message: "Clean caches, logs, and junk from your Mac.\n© 2026 Gustavo Costa",
+				Message: "Clean and maintain your Mac. 100% offline.",
 			},
 		},
 	})
-
 	if err != nil {
 		println("Error:", err.Error())
 	}
