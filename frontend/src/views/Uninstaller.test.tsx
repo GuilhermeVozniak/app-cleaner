@@ -154,4 +154,37 @@ describe('<Uninstaller />', () => {
       false,
     )
   })
+
+  it('renders an empty state (no rows) without crashing when ListApps resolves with no apps', async () => {
+    ListAppsMock.mockResolvedValueOnce([])
+    render(<Uninstaller />)
+    const btn = (await screen.findByRole('button', {
+      name: /uninstall 0 apps/i,
+    })) as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+    expect(screen.queryByText('Scanning installed applications…')).toBeNull()
+  })
+
+  it('disables the Uninstall button when zero apps are selected', async () => {
+    render(<Uninstaller />)
+    await screen.findByText('OldApp')
+    const btn = screen.getByRole('button', { name: /uninstall 0 apps/i }) as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    expect(btn.title).toBe('')
+  })
+
+  it('closing the confirm modal via Cancel returns to the list phase without calling StartUninstall', async () => {
+    render(<Uninstaller />)
+    await screen.findByText('OldApp')
+    fireEvent.click(screen.getByLabelText('Select OldApp (/Applications/OldApp.app)'))
+    const openBtn = screen.getByRole('button', { name: /uninstall 1 app/i })
+    fireEvent.click(openBtn)
+    expect(await screen.findByText('Uninstall applications')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    expect(screen.queryByText('Uninstall applications')).toBeNull()
+    expect(StartUninstallMock).not.toHaveBeenCalled()
+  })
 })

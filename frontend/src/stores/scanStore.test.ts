@@ -113,3 +113,54 @@ describe('selectedPaths', () => {
     expect(selectedPaths(r, sel)).toEqual({ trash: ['/t/a', '/t/b'], downloads: ['/d/y'] });
   });
 });
+
+describe('selection state parity with file-picker selection logic', () => {
+  it('auto-selects parent category when selecting a file', () => {
+    expect(useScanStore.getState().selected['large-files']).toBeUndefined();
+
+    useScanStore.getState().setItemSelection('large-files', new Set(['/test/file1.txt']));
+
+    const s = useScanStore.getState();
+    expect(isCategorySelected(s.selected['large-files'])).toBe(true);
+    expect(s.selected['large-files']).toEqual(new Set(['/test/file1.txt']));
+  });
+
+  it('preserves file selections for other categories when deselecting one', () => {
+    useScanStore.setState({
+      selected: {
+        'large-files': new Set(['/test1/file1.txt']),
+        downloads: new Set(['/test2/file2.txt']),
+      },
+    });
+
+    useScanStore.getState().toggleCategory('large-files');
+
+    const s = useScanStore.getState();
+    expect(s.selected['large-files']).toBeUndefined();
+    expect(s.selected['downloads']).toEqual(new Set(['/test2/file2.txt']));
+  });
+
+  it("cross-category isolation: setItemSelection(catA, 'all') leaves catB untouched", () => {
+    useScanStore.setState({
+      selected: { downloads: new Set(['/test2/file2.txt']) },
+    });
+
+    useScanStore.getState().setItemSelection('large-files', 'all');
+
+    const s = useScanStore.getState();
+    expect(s.selected['large-files']).toBe('all');
+    expect(s.selected['downloads']).toEqual(new Set(['/test2/file2.txt']));
+  });
+
+  it('cross-category isolation: toggleCategory(catA) off leaves catB untouched', () => {
+    useScanStore.setState({
+      selected: { 'large-files': 'all', downloads: new Set(['/test2/file2.txt']) },
+    });
+
+    useScanStore.getState().toggleCategory('large-files');
+
+    const s = useScanStore.getState();
+    expect(s.selected['large-files']).toBeUndefined();
+    expect(s.selected['downloads']).toEqual(new Set(['/test2/file2.txt']));
+  });
+});

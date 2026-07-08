@@ -183,6 +183,8 @@ Both `extraPaths` arrays extend the node-modules scanner's search roots (`projec
 13. Failed scanners surface as `ScanResult.Error` on their category card (the CLI silently dropped a crashed scanner from the summary).
 14. Docker `local volumes` excluded from results (the CLI listed it as reclaimable although `prune` without `--volumes` never frees it).
 15. Config + backups relocated to `~/Library/Application Support/AppCleaner/` (was `~/.maccleanerrc` / `~/.config/mac-cleaner-cli/` and `~/.mac-cleaner-cli/backup`).
+16. Config fields `defaultCategories`/`excludeCategories` dropped: the CLI parsed and validated them but no command ever read them (dead config). Category selection in the GUI is interactive per scan.
+17. `BackupItems` with an empty item list is a pure no-op: it creates no session directory (the CLI pre-created its backup root even when there was nothing to back up).
 
 Everything else — paths, thresholds, filters, sorting, naming formats, error philosophy — is ported as-is.
 

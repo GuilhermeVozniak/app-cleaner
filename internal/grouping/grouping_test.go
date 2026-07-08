@@ -145,6 +145,18 @@ func TestGroupItems_AbsolutePathsSkipContractionAndTruncation(t *testing.T) {
 	}
 }
 
+func TestGroupItems_PreservesFullFileNames(t *testing.T) {
+	longFileName := strings.Repeat("a", 100) + ".zip"
+	rows := GroupItems([]core.CleanableItem{item(home+"/Downloads/"+longFileName, 1000)}, home, nil, 5, false)
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+	// File rows are never truncated by the data layer; only directory paths are.
+	if rows[1].DisplayName != longFileName {
+		t.Errorf("file DisplayName = %q, want untruncated %q", rows[1].DisplayName, longFileName)
+	}
+}
+
 func TestGroupItems_Empty(t *testing.T) {
 	if rows := GroupItems(nil, home, nil, 5, false); len(rows) != 0 {
 		t.Fatalf("expected no rows for no items, got %d", len(rows))

@@ -67,7 +67,7 @@ func TestDevCacheScannerXcodeDerivedDataPerChild(t *testing.T) {
 	home := opts.Roots.Home
 	dd := filepath.Join(home, "Library", "Developer", "Xcode", "DerivedData")
 	mkFile(t, filepath.Join(dd, "MyApp-abcdefgh", "Build", "x.o"), 700)
-	mkDir(t, filepath.Join(dd, "Empty-00000000")) // 0-byte child: NO size gate for DerivedData
+	mkDir(t, filepath.Join(dd, "Empty-00000000"))                              // 0-byte child: NO size gate for DerivedData
 	mkDir(t, filepath.Join(home, "Library", "Developer", "Xcode", "Archives")) // empty Archives => out
 
 	byName := devCacheItemsByName(t, s, opts)

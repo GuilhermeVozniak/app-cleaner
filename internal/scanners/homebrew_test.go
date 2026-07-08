@@ -204,9 +204,9 @@ func TestHomebrewCleanSubpathFallsBackToDirectDelete(t *testing.T) {
 func TestHomebrewCleanupFailure(t *testing.T) {
 	brew, home, cache := hbFixture(t)
 	r := &scriptedRunner{responses: []scriptedResponse{
-		{Stdout: cache + "\n"},          // scan
-		{Stdout: cache + "\n"},          // clean --cache
-		{Err: errors.New("boom")},       // cleanup fails
+		{Stdout: cache + "\n"},    // scan
+		{Stdout: cache + "\n"},    // clean --cache
+		{Err: errors.New("boom")}, // cleanup fails
 	}}
 	s := newHomebrewScanner()
 	s.candidates = []string{brew}
@@ -218,6 +218,21 @@ func TestHomebrewCleanupFailure(t *testing.T) {
 	}
 	if len(cr.Errors) != 1 || cr.Errors[0] != "Homebrew cleanup failed: boom" {
 		t.Errorf("Errors = %v, want ['Homebrew cleanup failed: boom']", cr.Errors)
+	}
+}
+
+func TestHomebrewCleanNoBrewBinaryGracefulPerItemError(t *testing.T) {
+	s := newHomebrewScanner() // no Scan() run: brewPath is unset ("")
+	s.candidates = []string{filepath.Join(t.TempDir(), "missing-brew")}
+
+	items := []core.CleanableItem{{Path: filepath.Join(t.TempDir(), "nonexistent-file"), Size: 10, Name: "ghost"}}
+	cr := s.Clean(context.Background(), items, false, nil)
+
+	if cr.CleanedItems != 0 || cr.FreedSpace != 0 {
+		t.Fatalf("CleanResult = %+v, want 0 cleaned / 0 freed (item does not exist)", cr)
+	}
+	if len(cr.Errors) != 1 {
+		t.Fatalf("Errors = %v, want exactly one aggregated per-item error, no panic", cr.Errors)
 	}
 }
 

@@ -121,3 +121,48 @@ describe('risky group in results state', () => {
     expect(screen.queryByText('system-cache: permission denied')).toBeNull();
   });
 });
+
+describe('done state with nothing to clean', () => {
+  beforeEach(() => {
+    useScanStore.getState().reset();
+    useUiStore.setState({ view: 'smart-scan', activeCategoryId: undefined, config: undefined });
+  });
+
+  it("renders the 'already clean' EmptyState and no Clean button when totalSize is 0", () => {
+    const safe = cat('trash', 'Trash', 'safe');
+    useScanStore.setState({
+      status: 'done',
+      categories: [safe],
+      results: { trash: result(safe, {}) },
+      itemCounts: { trash: 0 },
+      totalSize: 0,
+      selected: {},
+    });
+    render(<SmartScan />);
+    expect(screen.getByText('Your Mac is already clean!')).toBeInTheDocument();
+    expect(screen.getByText('Nothing to remove was found.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clean' })).toBeNull();
+  });
+});
+
+describe('done state with zero items selected', () => {
+  beforeEach(() => {
+    useScanStore.getState().reset();
+    useUiStore.setState({ view: 'smart-scan', activeCategoryId: undefined, config: undefined });
+    const safe = cat('trash', 'Trash', 'safe');
+    useScanStore.setState({
+      status: 'done',
+      categories: [safe],
+      results: { trash: result(safe, { '/t/a': 10 }) },
+      itemCounts: { trash: 1 },
+      totalSize: 10,
+      selected: {},
+    });
+  });
+
+  it('renders the Clean button disabled when no items are selected', () => {
+    render(<SmartScan />);
+    expect(screen.getByText('0 items · 0 B selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clean' })).toBeDisabled();
+  });
+});
