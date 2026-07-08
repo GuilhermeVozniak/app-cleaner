@@ -32,16 +32,27 @@ func TestGroupItems_GroupsSortedByLargestSingleFile(t *testing.T) {
 		item(home+"/Documents/huge.pdf", 10000),
 		item(home+"/Movies/medium.mp4", 5000),
 		item(home+"/Downloads/big.zip", 900),
+		// Music: total 1500 (5×300), max 300.
+		// By largest-single-file: Music (300) sorts below Downloads (900).
+		// By total: Music (1500) would sort above Downloads (1000).
+		// This fixture ensures we're testing largest-single-file, not total ordering.
+		item(home+"/Music/song1.mp3", 300),
+		item(home+"/Music/song2.mp3", 300),
+		item(home+"/Music/song3.mp3", 300),
+		item(home+"/Music/song4.mp3", 300),
+		item(home+"/Music/song5.mp3", 300),
 	}
 
 	rows := GroupItems(items, home, nil, 5, false)
 
-	wantTypes := "directory-header,file,directory-header,file,directory-header,file,file"
+	wantTypes := "directory-header,file,directory-header,file,directory-header,file,file,directory-header,file,file,file,file,file"
 	if got := rowTypes(rows); got != wantTypes {
 		t.Fatalf("row types = %s, want %s", got, wantTypes)
 	}
 	// Directory order is driven by the largest SINGLE file in each dir
-	// (Documents 10000 > Movies 5000 > Downloads 900), not by dir totals.
+	// (Documents 10000 > Movies 5000 > Downloads 900 > Music 300), not by dir totals.
+	// Music has total 1500 (more than Downloads' 1000), but max 300 (less than Downloads' 900),
+	// so it sorts after Downloads under largest-single-file ordering.
 	if rows[0].DirectoryKey != home+"/Documents" {
 		t.Errorf("first group = %q, want ~/Documents", rows[0].DirectoryKey)
 	}
@@ -51,9 +62,18 @@ func TestGroupItems_GroupsSortedByLargestSingleFile(t *testing.T) {
 	if rows[4].DirectoryKey != home+"/Downloads" {
 		t.Errorf("third group = %q, want ~/Downloads", rows[4].DirectoryKey)
 	}
+	if rows[7].DirectoryKey != home+"/Music" {
+		t.Errorf("fourth group = %q, want ~/Music", rows[7].DirectoryKey)
+	}
 	// Files inside a group are size-descending.
 	if rows[5].Size != 900 || rows[6].Size != 100 {
 		t.Errorf("Downloads files not size-desc: %d then %d", rows[5].Size, rows[6].Size)
+	}
+	// Music files all same size, should appear after Downloads.
+	for i := 8; i < 13; i++ {
+		if rows[i].Size != 300 {
+			t.Errorf("Music file at row %d has size %d, want 300", i, rows[i].Size)
+		}
 	}
 	// Header row shape.
 	h := rows[0]
