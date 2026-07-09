@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/GuilhermeVozniak/app-cleaner/apps/cli/internal/output"
 	"github.com/GuilhermeVozniak/app-cleaner/apps/cli/internal/selection"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/grouping"
@@ -41,6 +42,7 @@ type FilePickerModel struct {
 	Home                string
 	AbsolutePaths       bool
 	Done                bool
+	Aborted             bool
 	store               *pickerStore
 	copyStatus          string
 }
@@ -102,7 +104,7 @@ func (m FilePickerModel) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	if key.String() == "ctrl+c" {
-		m.Done = true
+		m.Aborted = true
 		return m, tea.Quit
 	}
 
@@ -147,8 +149,10 @@ func (m FilePickerModel) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.store.InvertFiles(id, pathsOf(rows))
 	case "d":
 		m.store.ToggleDirectory(id, rows)
-	case "m", "right":
+	case "m":
 		m.store.ExpandCurrentDir(id, rows)
+	case "right":
+		m.store.ExpandHintAtCaret(id, rows)
 	case "h":
 		m.store.CollapseCurrentDir(id, rows)
 	case "c":
@@ -229,7 +233,14 @@ func (m FilePickerModel) View() string {
 func (m FilePickerModel) renderFiles(b *strings.Builder, id core.CategoryID, active bool) {
 	rows := m.rowsFor(id)
 	caret := m.store.FileCaret(id)
-	start, end := paginate(caret, len(rows), filesPageSize)
+	// The active pane's window is centered on the caret; an inactive
+	// category's file block renders from the TOP regardless of its remembered
+	// caret (file-picker.ts parity).
+	pageAnchor := caret
+	if !active {
+		pageAnchor = 0
+	}
+	start, end := paginate(pageAnchor, len(rows), filesPageSize)
 	for j := start; j < end; j++ {
 		row := rows[j]
 		isCaretRow := active && j == caret
@@ -251,7 +262,7 @@ func (m FilePickerModel) renderFiles(b *strings.Builder, id core.CategoryID, act
 			if m.store.IsFileSelected(id, row.Path) {
 				selectedMark = styleSafe.Render("●")
 			}
-			name := padEnd(truncateFileName(row.DisplayName, fileNameWidth), fileNameWidth)
+			name := padEnd(output.TruncateName(row.DisplayName, fileNameWidth), fileNameWidth)
 			size := padStart(core.FormatSize(row.Size), 10)
 			line = fmt.Sprintf("    %s%s %s %s", caretMark, selectedMark, name, size)
 			if !active {
@@ -261,17 +272,4 @@ func (m FilePickerModel) renderFiles(b *strings.Builder, id core.CategoryID, act
 		b.WriteString(line)
 		b.WriteString("\n")
 	}
-}
-
-// truncateFileName middle-elides a filename longer than width, preserving
-// the extension where possible (kept simple: hard cut with a trailing
-// ellipsis, matching the original's fallback path for the common case).
-func truncateFileName(name string, width int) string {
-	if len(name) <= width {
-		return name
-	}
-	if width < 4 {
-		return name[:width]
-	}
-	return name[:width-3] + "..."
 }

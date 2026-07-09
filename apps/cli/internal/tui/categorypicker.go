@@ -17,6 +17,7 @@ const categoryPageSize = 15
 type CategoryPickerModel struct {
 	Results  []core.ScanResult
 	Done     bool
+	Aborted  bool
 	caret    int
 	selected map[core.CategoryID]bool
 }
@@ -90,7 +91,7 @@ func (m CategoryPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Done = true
 		return m, tea.Quit
 	case "ctrl+c":
-		m.Done = true
+		m.Aborted = true
 		return m, tea.Quit
 	}
 	return m, nil

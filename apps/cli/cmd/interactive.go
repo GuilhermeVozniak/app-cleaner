@@ -178,6 +178,10 @@ func finishInteractive(ctx context.Context, opts InteractiveOptions, deps intera
 	if err != nil {
 		return nil, err
 	}
+	if finalCP.(tui.CategoryPickerModel).Aborted {
+		fmt.Println("Cancelled.")
+		return nil, nil
+	}
 	chosen := finalCP.(tui.CategoryPickerModel).Chosen()
 	if len(chosen) == 0 {
 		fmt.Println("No items selected. Nothing to clean.")
@@ -204,6 +208,10 @@ func finishInteractive(ctx context.Context, opts InteractiveOptions, deps intera
 		finalFP, err := runTeaProgram(fp)
 		if err != nil {
 			return nil, err
+		}
+		if finalFP.(tui.FilePickerModel).Aborted {
+			fmt.Println("Cancelled.")
+			return nil, nil
 		}
 		selectedCategories, selectedFiles = finalFP.(tui.FilePickerModel).Result()
 	}

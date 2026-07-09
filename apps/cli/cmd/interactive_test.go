@@ -76,6 +76,49 @@ func TestRunInteractiveDeclineConfirmReturnsNil(t *testing.T) {
 	}
 }
 
+// TestRunInteractiveCategoryPickerCtrlCAborts guards the ctrl+c-is-not-confirm
+// fix: pressing Ctrl-C in the category picker sets Aborted, so the interactive
+// flow cancels with a nil summary and never reaches confirm or any cleaning.
+func TestRunInteractiveCategoryPickerCtrlCAborts(t *testing.T) {
+	deps := interactiveDeps{
+		home: t.TempDir(),
+		cfg:  config.Default(),
+		scan: func(ctx context.Context, onResult func(completed, total int, r core.ScanResult)) core.ScanSummary {
+			return core.ScanSummary{
+				Results: []core.ScanResult{{
+					Category:  core.Category{ID: "trash", Name: "Trash", SafetyLevel: core.SafetySafe},
+					Items:     []core.CleanableItem{{Path: "/x/a", Size: 100, Name: "a"}},
+					TotalSize: 100,
+				}},
+				TotalSize: 100,
+			}
+		},
+		confirm:      func(string, bool) bool { t.Fatal("confirm must not be reached after ctrl+c"); return false },
+		printResults: func(core.CleanSummary, bool) { t.Fatal("printResults must not be reached after ctrl+c") },
+	}
+
+	old := runTeaProgram
+	runTeaProgram = func(model tea.Model) (tea.Model, error) {
+		switch m := model.(type) {
+		case tui.CategoryPickerModel:
+			next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+			return next, nil
+		case tui.FilePickerModel:
+			return m, nil
+		}
+		return model, nil
+	}
+	t.Cleanup(func() { runTeaProgram = old })
+
+	summary, err := runInteractive(context.Background(), InteractiveOptions{}, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if summary != nil {
+		t.Fatalf("ctrl+c in the category picker must abort with a nil summary, got %+v", summary)
+	}
+}
+
 func TestRunInteractiveConfirmedCleansAndBacksUp(t *testing.T) {
 	home := t.TempDir()
 	trashDir := home + "/.Trash"

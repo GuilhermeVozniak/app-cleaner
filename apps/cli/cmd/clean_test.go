@@ -323,6 +323,42 @@ func TestCleanCmdJSONShape(t *testing.T) {
 	}
 }
 
+// TestCleanCmdJSONWithoutYesErrorsAndWritesNothing guards the safety-critical
+// fix: `clean --json` with neither --yes nor --dry-run must NOT prompt (a human
+// y/N prompt on stdout would corrupt the JSON stream) and must NOT auto-delete.
+// It must return a non-nil error (routed to stderr / non-zero exit) and write
+// nothing to stdout.
+func TestCleanCmdJSONWithoutYesErrorsAndWritesNothing(t *testing.T) {
+	resetCleanFlags(t)
+	dir := withTempHome(t)
+	filePath := writeTempFile(t, dir, "cache.log", 64)
+	withFakeScan(t, func(ctx context.Context, ids []core.CategoryID, opts scanners.Options, concurrency int, onResult func(int, int, core.ScanResult)) core.ScanSummary {
+		cat := core.Categories["trash"]
+		return core.ScanSummary{
+			Results:    []core.ScanResult{{Category: cat, Items: []core.CleanableItem{{Path: filePath, Size: 64, Name: "cache.log"}}, TotalSize: 64}},
+			TotalSize:  64,
+			TotalItems: 1,
+		}
+	})
+	cleanJSON = true // no --yes, no --dry-run
+
+	cmd := newCleanTestCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(&bytes.Buffer{})
+
+	err := runClean(cmd, nil)
+	if err == nil {
+		t.Fatal("clean --json without --yes/--dry-run must return a non-nil error")
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("clean --json without --yes must write nothing to stdout (no prompt, no partial JSON), got %q", buf.String())
+	}
+	if _, statErr := os.Stat(filePath); statErr != nil {
+		t.Fatalf("clean --json without --yes must not delete anything, stat err = %v", statErr)
+	}
+}
+
 func TestCleanCmdReportsErrnoBreakdownOnFailure(t *testing.T) {
 	resetCleanFlags(t)
 	dir := withTempHome(t)

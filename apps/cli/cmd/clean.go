@@ -196,6 +196,14 @@ func runClean(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if cleanJSON && !cleanYes && !cleanDryRun {
+		// --json is non-interactive: a human y/N prompt written to stdout would
+		// corrupt the JSON stream, and auto-deleting without --yes is unsafe.
+		// Fail via a cobra error (stderr / non-zero exit) and emit nothing to
+		// stdout. --json --yes cleans + emits JSON; --json --dry-run previews.
+		return fmt.Errorf("clean --json is non-interactive; pass --yes to confirm deletion or --dry-run to preview")
+	}
+
 	if !cleanDryRun && !cleanYes {
 		// Non-interactive clean's confirm defaults to NO (contract).
 		if !promptConfirm(cmd.InOrStdin(), out, fmt.Sprintf("Delete %d items (%s)?", totalItems, core.FormatSize(totalSize)), false) {

@@ -105,6 +105,14 @@ func (p *pickerStore) ExpandCurrentDir(id core.CategoryID, rows []grouping.Displ
 	p.st.ExpandDirectoryAtCaret(rows)
 }
 
+// ExpandHintAtCaret covers the files-pane '→' key exclusively: unlike 'm'
+// (ExpandCurrentDir), State.ExpandHintAtCaret bumps the directory limit ONLY
+// when the caret sits on an expand-hint row, so it is a no-op from any other
+// (directory-header/file) row — mirroring file-picker.ts's right-key handler.
+func (p *pickerStore) ExpandHintAtCaret(id core.CategoryID, rows []grouping.DisplayRow) {
+	p.st.ExpandHintAtCaret(rows)
+}
+
 func (p *pickerStore) CollapseCurrentDir(id core.CategoryID, rows []grouping.DisplayRow) {
 	p.st.CollapseDirectoryAtCaret(rows)
 }
