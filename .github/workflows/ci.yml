@@ -16,8 +16,10 @@ jobs:
       - run: bun run test
       - run: bun run build
       - name: Lint workflows (actionlint, spec §9)
+        # Pin both the installer script (fetched from a release tag, not the
+        # mutable main branch) and the actionlint version it downloads.
         run: |
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
           ./actionlint -color
 
   go:

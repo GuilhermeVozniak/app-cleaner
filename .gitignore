@@ -12,6 +12,9 @@ apps/desktop/frontend/dist/
 
 # Wails build cache marker (regenerated every build)
 apps/desktop/frontend/package.json.md5
+
+# npm lockfiles (this is a bun monorepo; the lockfile is bun.lock at root)
+package-lock.json
 packages/shared/dist/
 apps/web/.next/
 apps/web/out/

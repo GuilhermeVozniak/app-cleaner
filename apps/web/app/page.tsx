@@ -264,7 +264,7 @@ export default function Home() {
           A native macOS port of{" "}
           <a
             className="text-primary no-underline hover:underline"
-            href="https://github.com/gabrielmaialva33/mac-cleaner-cli"
+            href="https://github.com/guhcostan/mac-cleaner-cli"
           >
             mac-cleaner-cli
           </a>
