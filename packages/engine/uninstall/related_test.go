@@ -131,6 +131,21 @@ func TestFindRelatedPathsTemplatesVariationsAndGlob(t *testing.T) {
 	}
 }
 
+func TestFindRelatedPathsReturnsNonNilWhenNoMatches(t *testing.T) {
+	// Empty home: no Library subdirs match any template, so no related paths.
+	// The result MUST still be a non-nil slice so the Wails JSON bridge emits
+	// "relatedPaths":[] rather than null (a null crashes the GUI Uninstaller's
+	// .length/.map/.reduce on that field).
+	home := t.TempDir()
+	got := FindRelatedPaths("Nonexistent App", "com.example.none", home)
+	if got == nil {
+		t.Fatal("FindRelatedPaths returned nil; must be a non-nil empty slice")
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected 0 related paths for an empty home, got %d", len(got))
+	}
+}
+
 func TestIncludableRejectsProtectedAndOutsideHome(t *testing.T) {
 	home := t.TempDir()
 	if !includable(filepath.Join(home, "Library", "Caches", "X"), home) {

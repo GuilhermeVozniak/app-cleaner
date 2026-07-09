@@ -65,7 +65,10 @@ export function Uninstaller() {
   const refresh = useCallback(async () => {
     setLoading(true)
     try {
-      setApps((await ListApps()) ?? [])
+      // Defense in depth: a Go nil slice arrives as JSON null, so normalise
+      // relatedPaths to [] before any row accesses .length/.map/.reduce.
+      const list = (await ListApps()) ?? []
+      setApps(list.map((a) => ({ ...a, relatedPaths: a.relatedPaths ?? [] })))
     } finally {
       setLoading(false)
     }

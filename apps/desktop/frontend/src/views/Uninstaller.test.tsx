@@ -53,6 +53,26 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('<Uninstaller />', () => {
+  it('does not crash when the bridge returns null relatedPaths (nil Go slice)', async () => {
+    // A Go nil RelatedPaths slice serialises to JSON null; the raw Wails call
+    // returns it unconverted. The view must normalise it to [] rather than
+    // crash on app.relatedPaths.length/.map/.reduce.
+    ListAppsMock.mockResolvedValue([
+      {
+        name: 'NakedApp',
+        path: '/Applications/NakedApp.app',
+        bundleId: 'com.naked.app',
+        appSize: 1000,
+        relatedPaths: null as unknown as AppInfo['relatedPaths'],
+        totalSize: 1000,
+        running: false,
+      },
+    ])
+    render(<Uninstaller />)
+    expect(await screen.findByText('NakedApp')).toBeDefined()
+    expect(screen.queryByText(/related/)).toBeNull() // no "+N related" chip, no crash
+  })
+
   it('lists apps with size, related chip and Running badge', async () => {
     render(<Uninstaller />)
     expect(await screen.findByText('OldApp')).toBeDefined()

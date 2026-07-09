@@ -103,7 +103,9 @@ func FindRelatedPaths(appName, bundleID, home string) []RelatedPath {
 		whitespaceRe.ReplaceAllString(appName, ""),
 	}
 	seen := map[string]bool{}
-	var out []RelatedPath
+	// Non-nil so the JSON bridge serializes "relatedPaths":[] (not null) for
+	// apps with no leftovers — a null crashes the GUI's .length/.map/.reduce.
+	out := []RelatedPath{}
 	add := func(candidate string) {
 		abs, err := filepath.Abs(candidate)
 		if err != nil || !includable(abs, home) {
