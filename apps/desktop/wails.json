@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "App Cleaner",
+  "outputfilename": "App Cleaner",
+  "frontend:install": "bun install",
+  "frontend:build": "bun run build",
+  "frontend:dev:watcher": "bun run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Guilherme Vozniak"
+  },
+  "info": {
+    "companyName": "Guilherme Vozniak",
+    "productName": "App Cleaner",
+    "productVersion": "1.0.0",
+    "copyright": "© 2026 Guilherme Vozniak — MIT",
+    "comments": "Clean caches, junk, and leftover app files on macOS."
+  }
+}

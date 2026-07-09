@@ -1,0 +1,71 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+      - name: Lint workflows (actionlint, spec §9)
+        # Pin both the installer script (fetched from a release tag, not the
+        # mutable main branch) and the actionlint version it downloads.
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
+  go:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.26" }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - name: Build desktop frontend (main.go embeds frontend/dist)
+        run: bun install --frozen-lockfile && cd apps/desktop/frontend && bun run build
+      - name: Test packages/engine
+        run: cd packages/engine && go test ./... -race -cover
+      - name: Test apps/desktop
+        run: cd apps/desktop && go test ./... -race -cover
+      - name: Test apps/cli
+        if: hashFiles('apps/cli/go.mod') != ''
+        run: cd apps/cli && go test ./... -race -cover
+      - name: gofmt check (packages/engine)
+        run: test -z "$(gofmt -l packages/engine)"
+      - name: gofmt check (apps/desktop)
+        run: test -z "$(gofmt -l apps/desktop)"
+      - name: gofmt check (apps/cli)
+        if: hashFiles('apps/cli/go.mod') != ''
+        run: test -z "$(gofmt -l apps/cli)"
+      - name: go vet (packages/engine)
+        run: cd packages/engine && go vet ./...
+      - name: go vet (apps/desktop)
+        run: cd apps/desktop && go vet ./...
+      - name: go vet (apps/cli)
+        if: hashFiles('apps/cli/go.mod') != ''
+        run: cd apps/cli && go vet ./...
+      - name: golangci-lint (packages/engine)
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12
+          working-directory: packages/engine
+      - name: golangci-lint (apps/desktop)
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12
+          working-directory: apps/desktop
+      - name: golangci-lint (apps/cli)
+        if: hashFiles('apps/cli/go.mod') != ''
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12
+          working-directory: apps/cli

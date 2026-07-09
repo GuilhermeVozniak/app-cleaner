@@ -1,6 +1,6 @@
 # App Cleaner — Monorepo, Terminal CLI, and Release Pipeline: Design
 
-**Date:** 2026-07-08 · **Status:** Approved · **Reference implementation:** `~/Dev/pessoal/option-tab` (same author, same patterns)
+**Date:** 2026-07-08 · **Status:** Plan 1 code-complete locally on branch `feat/monorepo-cli` (monorepo, engine extraction, web page, CI/release/pages workflows, universal wails build verified). GitHub publish (repo create, signing secrets, push, Pages, DNS) deferred to a single coordinated go-live after Plan 2 (§8 Terminal CLI) lands, since the cert export and DNS need the user's machine. · **Reference implementation:** `~/Dev/pessoal/option-tab` (same author, same patterns)
 
 Productizes the existing App Cleaner desktop app: restructure into a monorepo mirroring option-tab, extract the engine so a full-parity terminal CLI can reuse it, add a landing page deployed to GitHub Pages, and wire CI + a signed/notarized release pipeline. Two implementation plans execute this spec: **Plan 1** (§2–§7: monorepo + web + CI/release + repo setup) and **Plan 2** (§8: TUI CLI).
 

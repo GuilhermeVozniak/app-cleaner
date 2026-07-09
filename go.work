@@ -1,0 +1,7 @@
+go 1.26
+
+use (
+	./apps/cli
+	./apps/desktop
+	./packages/engine
+)
