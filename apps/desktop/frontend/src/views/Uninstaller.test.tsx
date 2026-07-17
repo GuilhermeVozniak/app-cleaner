@@ -15,6 +15,7 @@ vi.mock('../../wailsjs/go/main/App', () => ({
 
 import { ListApps, StartUninstall, GetAppIcon } from '../../wailsjs/go/main/App'
 import { Uninstaller } from './Uninstaller'
+import { useUninstallerStore } from '../stores/uninstallerStore'
 import type { AppInfo } from '../lib/types'
 
 const ListAppsMock = ListApps as unknown as ReturnType<typeof vi.fn>
@@ -43,9 +44,16 @@ const apps: AppInfo[] = [
 ]
 
 beforeEach(() => {
+  useUninstallerStore.setState({
+    apps: [], lastScanAt: null, scanning: false, selected: new Set<string>(),
+    icons: {}, phase: 'list', pending: null, lastRequested: [], lastDryRun: false,
+    skippedApps: [], progress: { current: 0, total: 0, appName: '' }, done: null, startError: null,
+  })
+  localStorage.clear()
   ListAppsMock.mockClear()
   ListAppsMock.mockResolvedValue(apps)
   StartUninstallMock.mockClear()
+  StartUninstallMock.mockResolvedValue(undefined)
   GetAppIconMock.mockReset()
   GetAppIconMock.mockResolvedValue('')
 })
@@ -206,5 +214,40 @@ describe('<Uninstaller />', () => {
 
     expect(screen.queryByText('Uninstall applications')).toBeNull()
     expect(StartUninstallMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps the cached list visible (no blocking state) while a background refresh runs', async () => {
+    useUninstallerStore.setState({ apps, lastScanAt: '2026-07-18T00:00:00Z' })
+    ListAppsMock.mockReturnValue(new Promise(() => {})) // scan never resolves
+    render(<Uninstaller />)
+    expect(screen.getByText('OldApp')).toBeDefined() // cached rows render immediately
+    expect(screen.queryByText('Scanning installed applications…')).toBeNull()
+    expect(await screen.findByText('Refreshing…')).toBeDefined()
+  })
+
+  it('shows the blocking scanning state only on a true first run (no cached apps)', async () => {
+    ListAppsMock.mockReturnValue(new Promise(() => {}))
+    render(<Uninstaller />)
+    expect(await screen.findByText('Scanning installed applications…')).toBeDefined()
+  })
+
+  it('shows the waiting overlay when an uninstall is confirmed mid-scan', async () => {
+    useUninstallerStore.setState({ apps, selected: new Set(['/Applications/OldApp.app']) })
+    ListAppsMock.mockReturnValue(new Promise(() => {})) // keep the scan in flight
+    render(<Uninstaller />)
+    fireEvent.click(screen.getByRole('button', { name: /uninstall 1 app/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /^uninstall$/i }))
+    expect(await screen.findByText('Waiting for app scan to finish…')).toBeDefined()
+    expect(StartUninstallMock).not.toHaveBeenCalled()
+  })
+
+  it('lists skipped (already removed) apps in the done dialog', async () => {
+    useUninstallerStore.setState({
+      phase: 'done',
+      done: { uninstalled: 1, freedSpace: 100, errors: [] },
+      skippedApps: ['GhostApp'],
+    })
+    render(<Uninstaller />)
+    expect(await screen.findByText(/1 app already removed — skipped: GhostApp/)).toBeDefined()
   })
 })
