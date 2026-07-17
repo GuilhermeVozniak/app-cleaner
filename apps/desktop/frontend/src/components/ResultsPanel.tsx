@@ -7,7 +7,7 @@ import type { CleanSummary } from '../lib/types'
 
 export function needsFdaHint(summary: CleanSummary | undefined): boolean {
   if (!summary) return false
-  return summary.results.some((r) =>
+  return (summary.results ?? []).some((r) =>
     (r.errors ?? []).some((e) => e.includes('EPERM') || e.includes('EACCES')),
   )
 }
@@ -39,15 +39,18 @@ export function ResultsPanel() {
         {error ? <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
 
         <ul className="mt-4 space-y-2">
-          {(summary?.results ?? []).map((r) => (
+          {(summary?.results ?? []).map((r) => {
+            // Defense in depth: a Go nil slice arrives as JSON null.
+            const errors = r.errors ?? []
+            return (
             <li key={r.category.id} className="text-sm">
-              <span className={r.errors.length === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                {r.errors.length === 0 ? `✓ ${r.category.name}` : `✗ ${r.category.name}`}
+              <span className={errors.length === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                {errors.length === 0 ? `✓ ${r.category.name}` : `✗ ${r.category.name}`}
               </span>{' '}
               <span className="text-zinc-500 dark:text-zinc-400">
                 {r.cleanedItems} item{r.cleanedItems === 1 ? '' : 's'} · {formatSize(r.freedSpace)}
               </span>
-              {r.errors.map((e) => (
+              {errors.map((e) => (
                 <div key={e}>
                   <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{e}</p>
                   {e.includes('PROTECTED') ? (
@@ -58,7 +61,8 @@ export function ResultsPanel() {
                 </div>
               ))}
             </li>
-          ))}
+            )
+          })}
         </ul>
 
         {needsFdaHint(summary) ? (

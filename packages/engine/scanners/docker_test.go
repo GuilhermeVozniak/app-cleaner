@@ -123,6 +123,9 @@ func TestDockerCleanPrune(t *testing.T) {
 	if cr.CleanedItems != 1 || cr.FreedSpace != 1500000000 || len(cr.Errors) != 0 {
 		t.Fatalf("CleanResult = %+v, want 1 cleaned / freed 1500000000", cr)
 	}
+	if cr.Errors == nil {
+		t.Fatal("success Errors is nil; must be non-nil so the Wails bridge emits \"errors\":[] not null")
+	}
 	if len(r.calls) != 2 {
 		t.Fatalf("calls = %+v, want df + prune", r.calls)
 	}
@@ -162,6 +165,9 @@ func TestDockerCleanFailureAndDryRun(t *testing.T) {
 	cr = s2.Clean(context.Background(), []core.CleanableItem{{Path: "docker:images", Size: 7, Name: "Docker Images"}}, true, nil)
 	if cr.CleanedItems != 1 || cr.FreedSpace != 7 || len(cr.Errors) != 0 {
 		t.Fatalf("dry-run CleanResult = %+v, want full success", cr)
+	}
+	if cr.Errors == nil {
+		t.Fatal("dry-run Errors is nil; must be non-nil so the Wails bridge emits \"errors\":[] not null")
 	}
 	if len(r2.calls) != 0 {
 		t.Fatalf("dry run must not execute commands: %v", r2.calls)

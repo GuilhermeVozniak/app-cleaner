@@ -109,6 +109,26 @@ describe('<ResultsPanel />', () => {
     expect(screen.queryByRole('button', { name: /grant full disk access/i })).toBeNull()
   })
 
+  it('does not crash on null errors (nil Go slice from docker/homebrew/backed-up categories)', () => {
+    // The Wails bridge serialises a nil []string as "errors":null; the panel
+    // must normalise it instead of crashing on r.errors.length (white screen).
+    const summary = {
+      results: [
+        { category: cat('homebrew', 'Homebrew'), cleanedItems: 3, freedSpace: 1024, errors: null },
+      ],
+      totalFreedSpace: 1024,
+      totalCleanedItems: 3,
+      totalErrors: 0,
+    } as unknown as CleanSummary
+    useCleanStore.setState({ status: 'done', summary, notBackedUp: [] })
+    render(<ResultsPanel />)
+    expect(screen.getByText(/✓ Homebrew/)).toBeDefined()
+  })
+
+  it('needsFdaHint tolerates null results (panic-path zero-value summary)', () => {
+    expect(needsFdaHint({ results: null } as unknown as CleanSummary)).toBe(false)
+  })
+
   it('renders a muted safety note under errors that contain PROTECTED', () => {
     useCleanStore.setState({
       status: 'done',

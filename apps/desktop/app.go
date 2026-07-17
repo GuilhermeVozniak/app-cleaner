@@ -405,7 +405,9 @@ func (a *App) runClean(ctx context.Context, resolved map[core.CategoryID][]core.
 		if !ok {
 			continue
 		}
-		res := core.CleanResult{Category: cat}
+		// Errors non-nil: a category whose items were ALL moved to backup skips
+		// sc.Clean, and a nil slice would reach the frontend as "errors":null.
+		res := core.CleanResult{Category: cat, Errors: []string{}}
 		if len(items) > 0 {
 			res = sc.Clean(ctx, items, opts.DryRun,
 				func(current, total int, item core.CleanableItem) {

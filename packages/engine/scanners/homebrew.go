@@ -42,7 +42,8 @@ func externalDryRun(cat core.Category, items []core.CleanableItem, progress core
 		}
 		freed += it.Size
 	}
-	return core.CleanResult{Category: cat, CleanedItems: len(items), FreedSpace: freed}
+	// Errors non-nil so the Wails bridge serialises "errors":[] (not null).
+	return core.CleanResult{Category: cat, CleanedItems: len(items), FreedSpace: freed, Errors: []string{}}
 }
 
 type homebrewScanner struct {
@@ -164,5 +165,5 @@ func (s *homebrewScanner) Clean(ctx context.Context, items []core.CleanableItem,
 			Errors:   []string{"Homebrew cleanup failed: " + err.Error()},
 		}
 	}
-	return core.CleanResult{Category: s.Category(), CleanedItems: len(items), FreedSpace: freed}
+	return core.CleanResult{Category: s.Category(), CleanedItems: len(items), FreedSpace: freed, Errors: []string{}}
 }

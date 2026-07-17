@@ -148,5 +148,6 @@ func (s *dockerScanner) Clean(ctx context.Context, items []core.CleanableItem, d
 			Errors:   []string{"Docker cleanup failed: " + err.Error()},
 		}
 	}
-	return core.CleanResult{Category: s.Category(), CleanedItems: len(items), FreedSpace: freed}
+	// Errors non-nil so the Wails bridge serialises "errors":[] (not null).
+	return core.CleanResult{Category: s.Category(), CleanedItems: len(items), FreedSpace: freed, Errors: []string{}}
 }

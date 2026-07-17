@@ -156,6 +156,9 @@ func TestHomebrewCleanCacheRootUsesBrewCleanup(t *testing.T) {
 	if len(cr.Errors) != 0 || cr.CleanedItems != 1 || cr.FreedSpace != res.Items[0].Size {
 		t.Fatalf("CleanResult = %+v, want 1 cleaned / freed %d", cr, res.Items[0].Size)
 	}
+	if cr.Errors == nil {
+		t.Fatal("success Errors is nil; must be non-nil so the Wails bridge emits \"errors\":[] not null")
+	}
 	if len(r.calls) != 3 {
 		t.Fatalf("calls = %+v, want 3 (scan --cache, clean --cache, cleanup)", r.calls)
 	}
@@ -243,6 +246,9 @@ func TestHomebrewCleanDryRun(t *testing.T) {
 	cr := s.Clean(context.Background(), items, true, nil)
 	if cr.CleanedItems != 1 || cr.FreedSpace != 42 || len(cr.Errors) != 0 {
 		t.Fatalf("dry-run CleanResult = %+v, want full success without commands", cr)
+	}
+	if cr.Errors == nil {
+		t.Fatal("dry-run Errors is nil; must be non-nil so the Wails bridge emits \"errors\":[] not null")
 	}
 	if len(r.calls) != 0 {
 		t.Fatalf("dry run must not execute commands: %v", r.calls)
