@@ -1,21 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
-import { ListApps, StartUninstall, GetAppIcon } from '../../wailsjs/go/main/App'
-import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
-import { formatSize } from '../lib/format'
+import { useEffect, useState } from 'react'
+import { GetAppIcon } from '../../wailsjs/go/main/App'
+import { formatSize, timeAgo } from '../lib/format'
 import { anySelectedRunning, contractHome } from '../lib/uninstallMath'
 import { ProgressOverlay } from '../components/ProgressOverlay'
 import { UninstallConfirm } from '../components/UninstallConfirm'
-import type { AppInfo } from '../lib/types'
-
-interface UninstallDone {
-  uninstalled: number
-  freedSpace: number
-  errors: string[]
-  cancelled?: boolean
-  error?: string
-}
-
-type Phase = 'list' | 'confirm' | 'running' | 'done'
+import { useUninstallerStore } from '../stores/uninstallerStore'
 
 interface RowIconProps {
   path: string
@@ -24,9 +13,7 @@ interface RowIconProps {
   onLoaded: (path: string, icon: string) => void
 }
 
-// Lazy per-row icon: GetAppIcon(path) is called once when the row first mounts;
-// the result (base64 PNG or '') is cached in the parent's icons map so re-renders
-// and re-mounts never re-fetch. Empty icon => letter avatar with the app initial.
+// Lazy per-row icon; results cached in the store so view switches never refetch.
 function RowIcon({ path, name, icon, onLoaded }: RowIconProps) {
   useEffect(() => {
     if (icon === undefined) {
@@ -52,101 +39,61 @@ function RowIcon({ path, name, icon, onLoaded }: RowIconProps) {
 }
 
 export function Uninstaller() {
-  const [apps, setApps] = useState<AppInfo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [icons, setIcons] = useState<Record<string, string>>({})
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const apps = useUninstallerStore((s) => s.apps)
+  const scanning = useUninstallerStore((s) => s.scanning)
+  const lastScanAt = useUninstallerStore((s) => s.lastScanAt)
+  const selected = useUninstallerStore((s) => s.selected)
+  const icons = useUninstallerStore((s) => s.icons)
+  const phase = useUninstallerStore((s) => s.phase)
+  const progress = useUninstallerStore((s) => s.progress)
+  const done = useUninstallerStore((s) => s.done)
+  const skippedApps = useUninstallerStore((s) => s.skippedApps)
+  const startError = useUninstallerStore((s) => s.startError)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [phase, setPhase] = useState<Phase>('list')
-  const [progress, setProgress] = useState({ current: 0, total: 0, appName: '' })
-  const [done, setDone] = useState<UninstallDone | null>(null)
-  const [startError, setStartError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    try {
-      // Defense in depth: a Go nil slice arrives as JSON null, so normalise
-      // relatedPaths to [] before any row accesses .length/.map/.reduce.
-      const list = (await ListApps()) ?? []
-      setApps(list.map((a) => ({ ...a, relatedPaths: a.relatedPaths ?? [] })))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const cacheIcon = useCallback((path: string, icon: string) => {
-    setIcons((prev) => (path in prev ? prev : { ...prev, [path]: icon }))
-  }, [])
-
+  // Background refresh on every mount — the cached list stays visible.
+  // Skipped while an uninstall is queued/running: a concurrent scan's
+  // pre-deletion snapshot can resolve after uninstall:done and resurrect
+  // just-deleted rows; finish()'s own reconciling refresh covers this once
+  // the run completes.
   useEffect(() => {
-    void refresh()
-  }, [refresh])
-
-  useEffect(() => {
-    EventsOn('uninstall:progress', (d: { current: number; total: number; appName: string }) => {
-      setPhase('running')
-      setProgress(d)
-    })
-    EventsOn('uninstall:done', (d: UninstallDone) => {
-      setDone(d)
-      setPhase('done')
-    })
-    return () => {
-      EventsOff('uninstall:progress')
-      EventsOff('uninstall:done')
-    }
+    const phase = useUninstallerStore.getState().phase
+    if (phase === 'waiting' || phase === 'running') return
+    void useUninstallerStore.getState().refresh()
   }, [])
-
-  // Selection is keyed by bundle path, not display name: two installed apps
-  // can share a display name (e.g. the same app under /Applications and
-  // ~/Applications) but never a path.
-  const toggle = (path: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(path)) next.delete(path)
-      else next.add(path)
-      return next
-    })
 
   const blocked = anySelectedRunning(apps, selected)
   const selectedApps = apps.filter((a) => selected.has(a.path))
-
-  const confirmUninstall = async (dryRun: boolean) => {
-    setStartError(null)
-    setPhase('running')
-    setProgress({ current: 0, total: selected.size, appName: '' })
-    try {
-      await StartUninstall([...selected], dryRun)
-    } catch (e) {
-      setStartError(String(e))
-      setPhase('list')
-    }
-  }
-
-  const finish = () => {
-    setPhase('list')
-    setDone(null)
-    setSelected(new Set())
-    void refresh()
-  }
+  const firstScan = apps.length === 0 && scanning
+  const store = useUninstallerStore.getState
 
   return (
     <div className="flex h-full flex-col p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Uninstaller</h1>
-        <button
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          onClick={() => void refresh()}
-        >
-          Re-check
-        </button>
+        <div className="flex items-center gap-3">
+          {scanning && apps.length > 0 ? (
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">Refreshing…</span>
+          ) : lastScanAt ? (
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              Updated {timeAgo(lastScanAt)}
+            </span>
+          ) : null}
+          <button
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            disabled={scanning}
+            onClick={() => void store().refresh()}
+          >
+            Re-check
+          </button>
+        </div>
       </div>
       {startError ? (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">{startError}</p>
       ) : null}
 
       <div className="mt-4 flex-1 overflow-y-auto">
-        {loading ? (
+        {firstScan ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Scanning installed applications…</p>
         ) : (
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -157,9 +104,14 @@ export function Uninstaller() {
                     type="checkbox"
                     aria-label={`Select ${app.name} (${app.path})`}
                     checked={selected.has(app.path)}
-                    onChange={() => toggle(app.path)}
+                    onChange={() => store().toggle(app.path)}
                   />
-                  <RowIcon path={app.path} name={app.name} icon={icons[app.path]} onLoaded={cacheIcon} />
+                  <RowIcon
+                    path={app.path}
+                    name={app.name}
+                    icon={icons[app.path]}
+                    onLoaded={store().cacheIcon}
+                  />
                   <button
                     className="flex-1 truncate text-left text-sm font-medium"
                     onClick={() => setExpanded(expanded === app.path ? null : app.path)}
@@ -203,7 +155,7 @@ export function Uninstaller() {
           className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40"
           disabled={selected.size === 0 || blocked}
           title={blocked ? 'Quit the app first' : undefined}
-          onClick={() => setPhase('confirm')}
+          onClick={() => store().openConfirm()}
         >
           Uninstall {selected.size} app{selected.size === 1 ? '' : 's'}
         </button>
@@ -212,8 +164,17 @@ export function Uninstaller() {
       {phase === 'confirm' ? (
         <UninstallConfirm
           apps={selectedApps}
-          onCancel={() => setPhase('list')}
-          onConfirm={(dryRun) => void confirmUninstall(dryRun)}
+          onCancel={() => store().closeConfirm()}
+          onConfirm={(dryRun) => store().requestUninstall(dryRun)}
+        />
+      ) : null}
+
+      {phase === 'waiting' ? (
+        <ProgressOverlay
+          title="Waiting for app scan to finish…"
+          current={0}
+          total={0}
+          itemName="Verifying installed apps"
         />
       ) : null}
 
@@ -233,6 +194,12 @@ export function Uninstaller() {
               {done.uninstalled} app{done.uninstalled === 1 ? '' : 's'} uninstalled ·{' '}
               {formatSize(done.freedSpace)} freed
             </p>
+            {skippedApps.length > 0 ? (
+              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+                {skippedApps.length} app{skippedApps.length === 1 ? '' : 's'} already removed — skipped:{' '}
+                {skippedApps.join(', ')}
+              </p>
+            ) : null}
             {done.cancelled ? (
               <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">Cancelled — partial results.</p>
             ) : null}
@@ -251,7 +218,7 @@ export function Uninstaller() {
             <div className="mt-6 flex justify-end">
               <button
                 className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                onClick={finish}
+                onClick={() => store().finish()}
               >
                 Done
               </button>

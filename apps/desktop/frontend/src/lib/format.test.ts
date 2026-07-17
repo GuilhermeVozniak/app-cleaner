@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatSize } from './format';
+import { formatSize, middleTruncate, timeAgo } from './format';
 
 describe('formatSize', () => {
   it('mirrors core.FormatSize exactly (base-1024, 0 decimals for bytes, 1 above)', () => {
@@ -18,3 +18,17 @@ describe('formatSize', () => {
     expect(formatSize(Number.NaN)).toBe('0 B');
   });
 });
+
+describe('timeAgo', () => {
+  const now = Date.parse('2026-07-18T12:00:00Z')
+  it('buckets seconds/minutes/hours/days', () => {
+    expect(timeAgo('2026-07-18T11:59:30Z', now)).toBe('just now')
+    expect(timeAgo('2026-07-18T11:55:00Z', now)).toBe('5 min ago')
+    expect(timeAgo('2026-07-18T09:00:00Z', now)).toBe('3 h ago')
+    expect(timeAgo('2026-07-15T12:00:00Z', now)).toBe('3 d ago')
+  })
+  it('returns empty string for unparseable input and clamps future times to just now', () => {
+    expect(timeAgo('not-a-date', now)).toBe('')
+    expect(timeAgo('2026-07-18T13:00:00Z', now)).toBe('just now')
+  })
+})
