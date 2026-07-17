@@ -53,7 +53,9 @@ function normalizeApps(list: AppInfo[] | null | undefined): AppInfo[] {
 // Validation gate: every uninstall funnels through here against the CURRENT
 // list — immediately when idle, or after the in-flight scan when queued.
 function startValidated(requested: RequestedApp[], dryRun: boolean): void {
-  const present = new Set(useUninstallerStore.getState().apps.map((a) => a.path))
+  const currentApps = useUninstallerStore.getState().apps
+  const present = new Set(currentApps.map((a) => a.path))
+  const runningPaths = new Set(currentApps.filter((a) => a.running).map((a) => a.path))
   const live = requested.filter((r) => present.has(r.path))
   const skipped = requested.filter((r) => !present.has(r.path)).map((r) => r.name)
   if (live.length === 0) {
@@ -61,6 +63,18 @@ function startValidated(requested: RequestedApp[], dryRun: boolean): void {
       skippedApps: skipped,
       phase: 'done',
       done: { uninstalled: 0, freedSpace: 0, errors: [] },
+    })
+    return
+  }
+  // Safety gate against the CURRENT list — an app may have launched since the
+  // (possibly stale) list the user confirmed against was rendered. Aborts the
+  // whole run, dry runs included: uninstalling a running app is blocked
+  // everywhere else in the product.
+  const runningNow = live.filter((r) => runningPaths.has(r.path))
+  if (runningNow.length > 0) {
+    useUninstallerStore.setState({
+      phase: 'list',
+      startError: `Still running — quit first: ${runningNow.map((r) => r.name).join(', ')}. Uninstall not started.`,
     })
     return
   }

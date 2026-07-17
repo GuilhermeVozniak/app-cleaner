@@ -68,8 +68,13 @@ Actions:
 - Validation (shared by both entry points): split requested paths into
   still-present vs gone by bundle path against the current `apps`. Gone →
   `skippedApps` (names). If nothing survives: `phase: 'done'` with a
-  zero-count summary + skipped note, `StartUninstall` is NOT called. Otherwise
-  `StartUninstall(present, dryRun)` and `phase: 'running'`.
+  zero-count summary + skipped note, `StartUninstall` is NOT called. Otherwise,
+  check the surviving requested apps against `running` in the current `apps`
+  (amended 2026-07-18, final-review finding): if any is `running: true`,
+  abort the whole run — `phase: 'list'`, `startError` = `Still running — quit
+  first: <comma-separated names>. Uninstall not started.` — `StartUninstall`
+  is NOT called, dry runs included (same gate as the list-phase button).
+  Otherwise `StartUninstall(present, dryRun)` and `phase: 'running'`.
 - `finish()` — close the done dialog, clear selection/done/skipped, kick a
   background `refresh()`.
 
@@ -94,6 +99,10 @@ the list.
   "Uninstalling…" overlay when the queued run starts.
 - Done dialog: when `skippedApps` is non-empty, an amber line —
   "N app(s) already removed — skipped: <names>".
+- Mount refresh is skipped when `phase` is already `'waiting'` or `'running'`
+  (amended 2026-07-18, final-review finding): a remount mid-flow must not
+  race a new scan against in-flight deletions, which can resurrect
+  just-deleted rows; `finish()`'s own refresh reconciles once the run ends.
 
 ## Error handling
 

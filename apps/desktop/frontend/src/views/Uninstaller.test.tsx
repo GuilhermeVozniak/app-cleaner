@@ -250,4 +250,14 @@ describe('<Uninstaller />', () => {
     render(<Uninstaller />)
     expect(await screen.findByText(/1 app already removed — skipped: GhostApp/)).toBeDefined()
   })
+
+  it('skips the mount refresh when an uninstall is already waiting or running', () => {
+    useUninstallerStore.setState({
+      apps,
+      phase: 'running',
+      progress: { current: 1, total: 2, appName: 'OldApp' },
+    })
+    render(<Uninstaller />)
+    expect(ListAppsMock).not.toHaveBeenCalled()
+  })
 })

@@ -52,7 +52,13 @@ export function Uninstaller() {
   const [expanded, setExpanded] = useState<string | null>(null)
 
   // Background refresh on every mount — the cached list stays visible.
+  // Skipped while an uninstall is queued/running: a concurrent scan's
+  // pre-deletion snapshot can resolve after uninstall:done and resurrect
+  // just-deleted rows; finish()'s own reconciling refresh covers this once
+  // the run completes.
   useEffect(() => {
+    const phase = useUninstallerStore.getState().phase
+    if (phase === 'waiting' || phase === 'running') return
     void useUninstallerStore.getState().refresh()
   }, [])
 

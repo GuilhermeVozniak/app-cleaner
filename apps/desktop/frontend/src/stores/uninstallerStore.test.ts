@@ -165,6 +165,36 @@ describe('requestUninstall', () => {
     await vi.waitFor(() => expect(useUninstallerStore.getState().phase).toBe('list'))
     expect(useUninstallerStore.getState().startError).toContain('already running')
   })
+
+  it('aborts a queued uninstall when the resolved scan shows the app now running', async () => {
+    useUninstallerStore.setState({
+      apps: [app('A', '/Applications/A.app')],
+      selected: new Set(['/Applications/A.app']),
+    })
+    let resolve!: (v: AppInfo[]) => void
+    ListAppsMock.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+    const p = useUninstallerStore.getState().refresh()
+    useUninstallerStore.getState().requestUninstall(false)
+    expect(useUninstallerStore.getState().phase).toBe('waiting')
+    resolve([{ ...app('A', '/Applications/A.app'), running: true }])
+    await p
+    expect(StartUninstallMock).not.toHaveBeenCalled()
+    const s = useUninstallerStore.getState()
+    expect(s.phase).toBe('list')
+    expect(s.startError).toBe('Still running — quit first: A. Uninstall not started.')
+  })
+
+  it('aborts immediately (even for a dry run) when the requested app is running in the current list', () => {
+    useUninstallerStore.setState({
+      apps: [{ ...app('A', '/Applications/A.app'), running: true }],
+      selected: new Set(['/Applications/A.app']),
+    })
+    useUninstallerStore.getState().requestUninstall(true)
+    expect(StartUninstallMock).not.toHaveBeenCalled()
+    const s = useUninstallerStore.getState()
+    expect(s.phase).toBe('list')
+    expect(s.startError).toBe('Still running — quit first: A. Uninstall not started.')
+  })
 })
 
 describe('uninstall events', () => {
