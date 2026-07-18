@@ -86,4 +86,42 @@ describe('<Backups /> details', () => {
     expect(await screen.findByText(/~\/b \(1 B\)/)).toBeDefined()
     expect(DetailsMock).toHaveBeenCalledTimes(2)
   })
+
+  it('keeps a fetch error scoped to the session that failed, not other sessions', async () => {
+    const sessionB = { path: '/Users/me/Library/Application Support/AppCleaner/Backups/2026-07-19T00-00-00Z', date: '2026-07-19T00:00:00Z', size: 512 }
+    ListBackupsMock.mockResolvedValue([session, sessionB])
+
+    let rejectA: (e: unknown) => void = () => {}
+    let resolveB: (v: unknown) => void = () => {}
+    DetailsMock.mockImplementation((path: string) => {
+      if (path === session.path) {
+        return new Promise((_resolve, reject) => {
+          rejectA = reject
+        })
+      }
+      return new Promise((resolve) => {
+        resolveB = resolve
+      })
+    })
+
+    render(<Backups />)
+    const toggles = await screen.findAllByRole('button', { name: /toggle details/i })
+
+    // Expand session A: fetch stays pending (in flight).
+    fireEvent.click(toggles[0])
+    // Collapse A and expand B before A's fetch settles.
+    fireEvent.click(toggles[0])
+    fireEvent.click(toggles[1])
+    expect(await screen.findByText('Loading…')).toBeDefined()
+
+    // A's in-flight fetch now fails while B is the expanded session.
+    rejectA(new Error('boom'))
+    await Promise.resolve()
+    // B must still show Loading…, not A's error rendered under it.
+    expect(await screen.findByText('Loading…')).toBeDefined()
+    expect(screen.queryByText("Couldn't read backup details")).toBeNull()
+
+    resolveB({ items: [], fromManifest: false, truncated: 0 })
+    expect(await screen.findByText('No details recorded for this backup')).toBeDefined()
+  })
 })

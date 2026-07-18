@@ -408,6 +408,9 @@ func TestRunInteractiveHidesRiskyCategoriesAndReportsCount(t *testing.T) {
 // when the home probe returns a definite "denied" (EACCES/EPERM), runInteractive
 // must print the Full Disk Access hint before scanning.
 func TestRunInteractiveWarnsWhenFullDiskAccessDenied(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores file modes; chmod probe cannot discriminate")
+	}
 	home := t.TempDir()
 	safariDir := filepath.Join(home, "Library", "Safari")
 	if err := os.MkdirAll(safariDir, 0o755); err != nil {

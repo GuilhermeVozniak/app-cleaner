@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -404,6 +405,9 @@ func TestPathsOfReturnsOnlyFileRowPaths(t *testing.T) {
 // (macOS-only, matching this CLI's product scope): the happy path must
 // produce a copiedMsg carrying the text and no error.
 func TestCopyToClipboardReturnsCopiedMsg(t *testing.T) {
+	if os.Getenv("APP_CLEANER_TEST_CLIPBOARD") == "" {
+		t.Skip("set APP_CLEANER_TEST_CLIPBOARD=1 to run (writes to the real clipboard)")
+	}
 	cmd := copyToClipboard("app-cleaner coverage test")
 	msg := cmd()
 	cm, ok := msg.(copiedMsg)

@@ -16,7 +16,7 @@ export function Backups() {
   const [removed, setRemoved] = useState(0)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [details, setDetails] = useState<Record<string, BackupDetails>>({})
-  const [detailsError, setDetailsError] = useState<string | null>(null)
+  const [detailsErrors, setDetailsErrors] = useState<Record<string, string>>({})
   const config = useUiStore((s) => s.config)
 
   const refresh = useCallback(async () => {
@@ -68,7 +68,10 @@ export function Backups() {
       return
     }
     setExpanded(path)
-    setDetailsError(null)
+    setDetailsErrors((prev) => {
+      const { [path]: _omit, ...rest } = prev
+      return rest
+    })
     if (details[path]) return
     try {
       const d = await GetBackupDetails(path)
@@ -78,7 +81,8 @@ export function Backups() {
         [path]: { items: d?.items ?? [], fromManifest: Boolean(d?.fromManifest), truncated: d?.truncated ?? 0 },
       }))
     } catch {
-      setDetailsError("Couldn't read backup details") // no cache -> re-expand retries
+      // no cache -> re-expand retries
+      setDetailsErrors((prev) => ({ ...prev, [path]: "Couldn't read backup details" }))
     }
   }
 
@@ -141,7 +145,7 @@ export function Backups() {
               {expanded === b.path ? (
                 <div className="mt-2 pl-8">
                   {!details[b.path] ? (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{detailsError ?? 'Loading…'}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{detailsErrors[b.path] ?? 'Loading…'}</p>
                   ) : details[b.path].items.length === 0 ? (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">No details recorded for this backup</p>
                   ) : (
