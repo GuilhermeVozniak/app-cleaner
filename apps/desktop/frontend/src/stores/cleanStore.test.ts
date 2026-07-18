@@ -92,6 +92,14 @@ describe('cleanStore', () => {
     expect(useCleanStore.getState().lastDryRun).toBe(true)
   })
 
+  it('startClean surfaces a StartClean rejection as a done state carrying the error message', async () => {
+    StartCleanMock.mockRejectedValueOnce(new Error('a clean is already running'))
+    await useCleanStore.getState().startClean({ trash: ['/x'] }, { dryRun: false, backup: false })
+    const s = useCleanStore.getState()
+    expect(s.status).toBe('done')
+    expect(s.error).toBe('Error: a clean is already running')
+  })
+
   it('cancelClean invokes the binding; reset returns to idle', () => {
     useCleanStore.getState().cancelClean()
     expect(CancelCleanMock).toHaveBeenCalledTimes(1)

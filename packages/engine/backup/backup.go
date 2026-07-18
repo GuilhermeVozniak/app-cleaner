@@ -5,6 +5,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,6 +18,17 @@ import (
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fsx"
 )
+
+// manifestName is the session-root manifest listing the moved items.
+// Restore must skip it; Details reads it. Never under HOME/.
+const manifestName = "items.json"
+
+// Item is one moved item as recorded in the session manifest.
+type Item struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
 
 // now is the determinism seam for session naming; tests override it.
 var now = time.Now
@@ -86,6 +98,7 @@ func (m *Manager) BackupItems(ctx context.Context, home string, items []core.Cle
 	}
 	out.SessionDir = sessionDir
 	total := len(items)
+	var manifest []Item
 	for i, it := range items {
 		if progress != nil {
 			progress(i+1, total, it)
@@ -111,6 +124,14 @@ func (m *Manager) BackupItems(ctx context.Context, home string, items []core.Cle
 		}
 		out.BackedUp++
 		out.Moved = append(out.Moved, it.Path)
+		manifest = append(manifest, Item{Path: it.Path, Name: it.Name, Size: it.Size})
+	}
+	if len(manifest) > 0 {
+		// Non-fatal: the moves already succeeded; a missing manifest only
+		// degrades Details to the walk fallback.
+		if data, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+			_ = os.WriteFile(filepath.Join(sessionDir, manifestName), data, 0o644)
+		}
 	}
 	return out
 }
@@ -205,6 +226,9 @@ func (m *Manager) Restore(sessionDir, home string) RestoreResult {
 			res.Errors = append(res.Errors, fmt.Sprintf("Failed to resolve %s: %v", path, rerr))
 			return nil
 		}
+		if rel == manifestName {
+			return nil // session metadata, not user data — never restored, never counted
+		}
 		target, terr := restoreTarget(rel, home)
 		if terr != nil {
 			res.Failed++
@@ -261,4 +285,62 @@ func (m *Manager) Delete(sessionDir string) error {
 		return err
 	}
 	return os.RemoveAll(sd)
+}
+
+// detailsCap bounds the legacy fallback listing; the manifest path is uncapped
+// (it holds items, not files, and is naturally small).
+const detailsCap = 200
+
+// Details describes a session's contents for display.
+type Details struct {
+	Items        []Item `json:"items"`
+	FromManifest bool   `json:"fromManifest"`
+	Truncated    int    `json:"truncated"`
+}
+
+// Details returns what a session contains: the manifest's items when present,
+// otherwise a sorted, capped walk of the session's HOME/ files with original
+// paths reconstructed under home. Items is never nil (JSON bridge: []).
+func (m *Manager) Details(sessionDir, home string) (Details, error) {
+	d := Details{Items: []Item{}}
+	sd, err := m.resolveSession(sessionDir)
+	if err != nil {
+		return d, err
+	}
+	if data, rerr := os.ReadFile(filepath.Join(sd, manifestName)); rerr == nil {
+		var items []Item
+		if jerr := json.Unmarshal(data, &items); jerr == nil && items != nil {
+			d.Items = items
+			d.FromManifest = true
+			return d, nil
+		}
+		// Corrupt manifest: fall through to the walk.
+	}
+	home = filepath.Clean(home)
+	root := filepath.Join(sd, "HOME")
+	var files []Item
+	_ = filepath.WalkDir(root, func(path string, de fs.DirEntry, werr error) error {
+		if werr != nil || de.IsDir() {
+			return nil // unreadable entries tolerated, like List()
+		}
+		rel, rerr := filepath.Rel(root, path)
+		if rerr != nil {
+			return nil
+		}
+		var size int64
+		if st, serr := de.Info(); serr == nil {
+			size = st.Size()
+		}
+		files = append(files, Item{Path: filepath.Join(home, rel), Name: de.Name(), Size: size})
+		return nil
+	})
+	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+	if len(files) > detailsCap {
+		d.Truncated = len(files) - detailsCap
+		files = files[:detailsCap]
+	}
+	if files != nil {
+		d.Items = files
+	}
+	return d, nil
 }

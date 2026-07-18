@@ -75,3 +75,52 @@ func TestRunMaintenanceFailureRendersErrorLine(t *testing.T) {
 		t.Fatalf("out = %q", buf.String())
 	}
 }
+
+func TestPrintMaintenanceResultRendersAllThreeShapes(t *testing.T) {
+	cases := []struct {
+		name   string
+		result maintenance.Result
+		want   string
+	}{
+		{"success", maintenance.Result{Success: true, Message: "DNS cache flushed"}, "✓ DNS cache flushed\n"},
+		{"failure with error detail", maintenance.Result{Success: false, Message: "Flush failed", Error: "boom"}, "✗ Flush failed: boom\n"},
+		{"failure without error detail", maintenance.Result{Success: false, Message: "Flush failed"}, "✗ Flush failed\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			printMaintenanceResult(&buf, c.result)
+			if buf.String() != c.want {
+				t.Fatalf("printMaintenanceResult() = %q, want %q", buf.String(), c.want)
+			}
+		})
+	}
+}
+
+// TestRunMaintenanceTaskTTYRendersSpinnerFramesBeforeTheResult drives the
+// isTTY=true branch (runMaintenanceTask's default non-TTY path is already
+// exercised by every other runMaintenance test): a task that outlasts one
+// 80ms ticker interval must produce at least one "\r<frame> <name>" spinner
+// redraw before the "\r\033[K"-cleared final result line.
+func TestRunMaintenanceTaskTTYRendersSpinnerFramesBeforeTheResult(t *testing.T) {
+	task := maintenanceTask{
+		Name: "Slow Task",
+		Run: func(ctx context.Context) maintenance.Result {
+			time.Sleep(180 * time.Millisecond) // > one 80ms ticker interval
+			return maintenance.Result{Success: true, Message: "done"}
+		},
+	}
+	var buf bytes.Buffer
+	runMaintenanceTask(context.Background(), &buf, true, task)
+	out := buf.String()
+
+	if !strings.Contains(out, "Slow Task") {
+		t.Fatalf("out = %q, want at least one spinner frame naming the task", out)
+	}
+	if !strings.Contains(out, "✓ done") {
+		t.Fatalf("out = %q, want the final success line", out)
+	}
+	if strings.Count(out, "\r") < 2 {
+		t.Fatalf("out = %q, want >= 2 carriage returns (a spinner redraw plus the final clear)", out)
+	}
+}

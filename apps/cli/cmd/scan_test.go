@@ -10,6 +10,8 @@ import (
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/config"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/scanners"
+
+	"github.com/charmbracelet/bubbles/spinner"
 )
 
 // fakeScanFunc matches scanners.RunScans's signature; every test that
@@ -189,5 +191,100 @@ func TestScanCmdHumanOutputShowsSizesAndTotal(t *testing.T) {
 	}
 	if !strings.Contains(text, core.FormatSize(4096)) {
 		t.Fatalf("output = %q, want the total formatted size", text)
+	}
+}
+
+func TestWaitForScanUpdateReturnsTheChannelValue(t *testing.T) {
+	updates := make(chan interface{}, 1)
+	updates <- scanDoneMsg{summary: core.ScanSummary{TotalSize: 42}}
+
+	msg := waitForScanUpdate(updates)()
+	done, ok := msg.(scanDoneMsg)
+	if !ok || done.summary.TotalSize != 42 {
+		t.Fatalf("waitForScanUpdate()() = %#v, want scanDoneMsg{summary.TotalSize: 42}", msg)
+	}
+}
+
+func TestScanSpinnerModelInitReturnsANonNilBatchedCmd(t *testing.T) {
+	m := scanSpinnerModel{spinner: spinner.New(), updates: make(chan interface{}, 1)}
+	if cmd := m.Init(); cmd == nil {
+		t.Fatal("Init() must batch the spinner tick and the update-wait into a non-nil cmd")
+	}
+}
+
+func TestScanSpinnerModelUpdateHandlesTickProgressAndDone(t *testing.T) {
+	m := scanSpinnerModel{spinner: spinner.New(), updates: make(chan interface{}, 1), label: "starting"}
+
+	// spinner.TickMsg: forwarded to the embedded spinner, which returns its
+	// own re-arming tick cmd.
+	next, cmd := m.Update(spinner.TickMsg{})
+	sm, ok := next.(scanSpinnerModel)
+	if !ok {
+		t.Fatalf("Update(spinner.TickMsg{}) returned %T, want scanSpinnerModel", next)
+	}
+	if cmd == nil {
+		t.Fatal("a spinner tick must return the spinner's own re-arm cmd")
+	}
+
+	// scanProgressMsg: updates the label and re-arms waitForScanUpdate.
+	next, cmd = sm.Update(scanProgressMsg{categoryName: "Trash", completed: 1, total: 2})
+	sm = next.(scanSpinnerModel)
+	if sm.label != "Scanning Trash... (1/2)" {
+		t.Fatalf("label = %q, want the formatted progress line", sm.label)
+	}
+	if cmd == nil {
+		t.Fatal("a progress message must re-arm waitForScanUpdate")
+	}
+
+	// scanDoneMsg: captures the summary and quits.
+	next, cmd = sm.Update(scanDoneMsg{summary: core.ScanSummary{TotalSize: 99}})
+	sm = next.(scanSpinnerModel)
+	if sm.summary.TotalSize != 99 {
+		t.Fatalf("summary.TotalSize = %d, want 99", sm.summary.TotalSize)
+	}
+	if cmd == nil {
+		t.Fatal("scanDoneMsg must return tea.Quit")
+	}
+}
+
+func TestScanSpinnerModelViewEmptyLabelRendersNothing(t *testing.T) {
+	m := scanSpinnerModel{spinner: spinner.New()}
+	if got := m.View(); got != "" {
+		t.Fatalf("View() = %q, want empty when label is empty", got)
+	}
+}
+
+func TestScanSpinnerModelViewShowsSpinnerAndLabel(t *testing.T) {
+	m := scanSpinnerModel{spinner: spinner.New(), label: "Scanning Trash... (1/2)"}
+	got := m.View()
+	if !strings.Contains(got, "Scanning Trash... (1/2)") {
+		t.Fatalf("View() = %q, want it to contain the label", got)
+	}
+}
+
+// TestRunScanDefaultProgressLineFormatsCompletedAndTotal exercises the
+// non-TTY, non-JSON default branch's onResult callback directly (the fake
+// scanRunner used elsewhere never invokes onResult, so that print statement
+// is otherwise never covered): stdout is not a terminal under `go test`, so
+// runScan takes this branch on its own.
+func TestRunScanDefaultProgressLineFormatsCompletedAndTotal(t *testing.T) {
+	resetScanFlags(t)
+	withTempHome(t)
+	withFakeScan(t, func(ctx context.Context, ids []core.CategoryID, opts scanners.Options, concurrency int, onResult func(int, int, core.ScanResult)) core.ScanSummary {
+		if onResult != nil {
+			onResult(1, 2, core.ScanResult{Category: core.Categories["trash"]})
+		}
+		return fakeScanSummary()
+	})
+
+	buf := &bytes.Buffer{}
+	scanCmd.SetOut(buf)
+	scanCmd.SetErr(&bytes.Buffer{})
+
+	if err := runScan(scanCmd, nil); err != nil {
+		t.Fatalf("runScan() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "Scanning Trash... (1/2)") {
+		t.Fatalf("output = %q, want the progress line from the default onResult callback", buf.String())
 	}
 }
