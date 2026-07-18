@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { Checkbox } from './ui/checkbox';
 import SizeBar from './SizeBar';
 import { formatSize } from '../lib/format';
 import type { ScanResult, SafetyLevel } from '../lib/types';
@@ -30,12 +31,10 @@ export default function CategoryCard({
   const { category } = result;
   return (
     <div className="glass-1 flex items-center gap-3 rounded-control px-3 py-2.5">
-      <input
-        type="checkbox"
+      <Checkbox
         aria-label={`Select ${category.name}`}
         checked={selected}
-        onChange={onToggle}
-        className="h-4 w-4 accent-accent"
+        onCheckedChange={onToggle}
       />
       <button
         type="button"
@@ -55,7 +54,7 @@ export default function CategoryCard({
               {itemCount} items · {formatSize(result.totalSize)}
             </span>
           </div>
-          {result.error && <div className="mt-1 text-xs text-danger">{result.error}</div>}
+          {result.error && <div className="mt-1 text-xs text-moderate">{result.error}</div>}
         </div>
         <ChevronRight size={16} className="shrink-0 text-ink-2" />
       </button>

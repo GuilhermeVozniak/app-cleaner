@@ -4,6 +4,7 @@ import { useCleanStore } from '../stores/cleanStore'
 import { useUiStore } from '../stores/uiStore'
 import { formatSize } from '../lib/format'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { Category, ScanResult } from '../lib/types'
 
@@ -111,19 +112,11 @@ export function ConfirmModal() {
 
         <div className="mt-5 space-y-2">
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={backup}
-              onChange={(e) => setBackup(e.target.checked)}
-            />
+            <Checkbox checked={backup} onCheckedChange={(v) => setBackup(v === true)} />
             Back up items before deleting (Undo)
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={dryRun}
-              onChange={(e) => setDryRun(e.target.checked)}
-            />
+            <Checkbox checked={dryRun} onCheckedChange={(v) => setDryRun(v === true)} />
             Dry run (preview only, nothing is deleted)
           </label>
         </div>

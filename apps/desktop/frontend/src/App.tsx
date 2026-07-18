@@ -40,6 +40,10 @@ function App() {
   if (view === 'first-run') {
     return (
       <div className="h-full bg-surface-solid">
+        <div
+          className="fixed inset-x-0 top-0 h-7 z-20"
+          style={{ '--wails-draggable': 'drag' } as CSSProperties}
+        />
         <FirstRun />
       </div>
     );

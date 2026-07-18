@@ -107,6 +107,11 @@ describe('<Uninstaller />', () => {
     const btn = screen.getByRole('button', { name: /uninstall 1 app/i }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
     expect(btn.title).toBe('Quit the app first')
+    // The disabled button swallows pointer events, so the hint must be
+    // reachable via a focusable, title-carrying tooltip-trigger wrapper.
+    const trigger = btn.closest('span[title="Quit the app first"]')
+    expect(trigger).not.toBeNull()
+    expect(trigger?.getAttribute('tabindex')).toBe('0')
   })
 
   it('enables Uninstall for a non-running selection and confirms into StartUninstall', async () => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { formatSize } from '../lib/format'
 import { contractHome, selectionTotals } from '../lib/uninstallMath'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { AppInfo } from '../lib/types'
 
@@ -42,7 +43,7 @@ export function UninstallConfirm({ apps, onCancel, onConfirm }: UninstallConfirm
           Total: {formatSize(totals.size)} will be freed ({totals.paths} items)
         </p>
         <label className="mt-4 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+          <Checkbox checked={dryRun} onCheckedChange={(v) => setDryRun(v === true)} />
           Dry run (preview only, nothing is deleted)
         </label>
         <div className="mt-6 flex justify-end gap-3">

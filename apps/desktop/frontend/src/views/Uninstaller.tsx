@@ -159,7 +159,18 @@ export function Uninstaller() {
       </div>
 
       <ActionBar>
-        {blocked ? <Tooltip content="Quit the app first">{uninstallButton}</Tooltip> : uninstallButton}
+        {blocked ? (
+          // Disabled buttons swallow pointer events (Button base sets
+          // disabled:pointer-events-none), so a focusable span carries the
+          // tooltip trigger and the native title.
+          <Tooltip content="Quit the app first">
+            <span tabIndex={0} title="Quit the app first" className="ml-auto inline-block">
+              {uninstallButton}
+            </span>
+          </Tooltip>
+        ) : (
+          uninstallButton
+        )}
       </ActionBar>
 
       {phase === 'confirm' ? (
