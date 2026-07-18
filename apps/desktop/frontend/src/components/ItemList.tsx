@@ -1,5 +1,6 @@
 import { Copy, Folder } from 'lucide-react';
 import { CopyPath, RevealInFinder } from '../../wailsjs/go/main/App';
+import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { formatSize, middleTruncate } from '../lib/format';
 import { contractHome, homeDir } from '../lib/paths';
@@ -37,22 +38,24 @@ export default function ItemList({ items, selectable, isChecked, onToggle }: Pro
             {middleTruncate(contractHome(item.path, homeDir()), 50)}
           </span>
           <span className="hidden shrink-0 items-center gap-1 group-hover:flex">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               title="Reveal in Finder"
               onClick={() => RevealInFinder(item.path)}
-              className="rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
+              className="h-auto w-auto rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
             >
               <Folder size={14} />
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
               title="Copy path"
               onClick={() => CopyPath(item.path)}
-              className="rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
+              className="h-auto w-auto rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
             >
               <Copy size={14} />
-            </button>
+            </Button>
           </span>
           <span className="nums w-20 shrink-0 text-right text-ink-2">
             {formatSize(item.size)}

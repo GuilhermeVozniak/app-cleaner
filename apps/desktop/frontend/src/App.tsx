@@ -16,7 +16,7 @@ import { useUiStore } from './stores/uiStore';
 // SmartScan (Task 23), CategoryDetail (Task 24), Uninstaller/Maintenance/Backups/Settings (later tasks).
 function Placeholder({ title }: { title: string }) {
   return (
-    <div className="flex h-full items-center justify-center text-neutral-400 dark:text-neutral-500">
+    <div className="flex h-full items-center justify-center text-ink-2">
       {title}
     </div>
   );
@@ -39,7 +39,7 @@ function App() {
 
   if (view === 'first-run') {
     return (
-      <div className="h-full bg-white dark:bg-neutral-900">
+      <div className="h-full bg-surface-solid">
         <FirstRun />
       </div>
     );

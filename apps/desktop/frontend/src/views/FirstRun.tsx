@@ -51,13 +51,14 @@ export default function FirstRun() {
           <Button type="button" variant="ghost" onClick={() => void refreshFda()}>
             Re-check
           </Button>
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setView('smart-scan')}
-            className="px-2 py-2 text-sm text-ink-2 hover:text-ink"
+            className="h-auto px-2 py-2 text-ink-2 hover:bg-transparent hover:text-ink"
           >
             Continue without
-          </button>
+          </Button>
         </div>
         <p className="text-xs text-ink-2">
           System Settings → Privacy &amp; Security → Full Disk Access → enable App Cleaner, then

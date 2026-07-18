@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { formatSize } from '../lib/format'
 import { contractHome, selectionTotals } from '../lib/uninstallMath'
+import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { AppInfo } from '../lib/types'
 
@@ -45,18 +46,12 @@ export function UninstallConfirm({ apps, onCancel, onConfirm }: UninstallConfirm
           Dry run (preview only, nothing is deleted)
         </label>
         <div className="mt-6 flex justify-end gap-3">
-          <button
-            className="rounded-control px-4 py-2 text-sm text-ink hover:bg-hairline"
-            onClick={onCancel}
-          >
+          <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
-          </button>
-          <button
-            className="rounded-control bg-danger px-4 py-2 text-sm font-medium text-white hover:brightness-110"
-            onClick={() => onConfirm(dryRun)}
-          >
+          </Button>
+          <Button type="button" variant="destructive" onClick={() => onConfirm(dryRun)}>
             Uninstall
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

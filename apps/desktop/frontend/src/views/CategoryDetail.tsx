@@ -87,20 +87,22 @@ export default function CategoryDetail() {
           </div>
         ) : (
           <div className="mt-3 flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setItemSelection(activeCategoryId, 'all')}
-              className="rounded-control border border-hairline px-3 py-1 text-xs text-ink hover:bg-hairline"
+              className="h-auto border border-hairline px-3 py-1 text-xs"
             >
               Select all
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setItemSelection(activeCategoryId, invertSelection(allPaths, sel))}
-              className="rounded-control border border-hairline px-3 py-1 text-xs text-ink hover:bg-hairline"
+              className="h-auto border border-hairline px-3 py-1 text-xs"
             >
               Invert
-            </button>
+            </Button>
           </div>
         )}
       </header>
@@ -139,7 +141,7 @@ export default function CategoryDetail() {
                   <button
                     type="button"
                     onClick={() => onExpandHint(row.directoryKey)}
-                    className="px-2 py-1 text-xs text-accent hover:underline"
+                    className="rounded px-2 py-1 text-xs text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     Show {row.hiddenCount} more
                   </button>
@@ -165,22 +167,24 @@ export default function CategoryDetail() {
                   {middleTruncate(contractHome(path, homeDir()), 50)}
                 </span>
                 <span className="hidden shrink-0 items-center gap-1 group-hover:flex">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     title="Reveal in Finder"
                     onClick={() => RevealInFinder(path)}
-                    className="rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
+                    className="h-auto w-auto rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
                   >
                     <Folder size={14} />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
                     title="Copy path"
                     onClick={() => CopyPath(path)}
-                    className="rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
+                    className="h-auto w-auto rounded p-1 text-ink-2 hover:bg-hairline hover:text-ink"
                   >
                     <Copy size={14} />
-                  </button>
+                  </Button>
                 </span>
                 <span className="nums w-20 shrink-0 text-right text-ink-2">
                   {formatSize(row.size ?? 0)}

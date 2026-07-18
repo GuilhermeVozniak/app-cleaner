@@ -124,12 +124,14 @@ export function Uninstaller() {
                     icon={icons[app.path]}
                     onLoaded={store().cacheIcon}
                   />
-                  <button
-                    className="flex-1 truncate text-left text-sm font-medium"
+                  <Button
+                    type="button"
+                    variant="ghost"
                     onClick={() => setExpanded(expanded === app.path ? null : app.path)}
+                    className="h-auto flex-1 justify-start truncate px-1.5 py-0.5 text-left text-sm font-medium"
                   >
                     {app.name}
-                  </button>
+                  </Button>
                   {app.running ? <Badge variant="risky">Running</Badge> : null}
                   {app.relatedPaths.length > 0 ? (
                     <Badge variant="neutral">+{app.relatedPaths.length} related</Badge>
@@ -219,12 +221,9 @@ export function Uninstaller() {
               </ul>
             ) : null}
             <div className="mt-6 flex justify-end">
-              <button
-                className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110"
-                onClick={() => store().finish()}
-              >
+              <Button type="button" variant="primary" onClick={() => store().finish()}>
                 Done
-              </button>
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

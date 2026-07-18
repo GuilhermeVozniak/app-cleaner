@@ -11,10 +11,8 @@ export default function EmptyState({ title, subtitle, icon: Icon = Sparkles }: P
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
       <Icon size={48} className="text-green-500" />
-      <div className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</div>
-      {subtitle && (
-        <div className="text-sm text-neutral-500 dark:text-neutral-400">{subtitle}</div>
-      )}
+      <div className="text-lg font-semibold text-ink">{title}</div>
+      {subtitle && <div className="text-sm text-ink-2">{subtitle}</div>}
     </div>
   );
 }

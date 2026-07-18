@@ -1,5 +1,7 @@
 import { Archive, Settings, ShieldAlert, Sparkles, Trash2, Wrench } from 'lucide-react';
+import { cn } from '../lib/cn';
 import { useUiStore, type View } from '../stores/uiStore';
+import { Button } from './ui/button';
 
 const NAV: Array<{ view: View; label: string; Icon: typeof Sparkles }> = [
   { view: 'smart-scan', label: 'Smart Scan', Icon: Sparkles },
@@ -23,32 +25,33 @@ export default function Sidebar() {
         {NAV.map(({ view: v, label, Icon }) => {
           const active = view === v || (v === 'smart-scan' && view === 'category');
           return (
-            <button
+            <Button
               key={v}
               type="button"
+              variant="ghost"
               onClick={() => setView(v)}
-              className={`flex items-center gap-2 rounded-control px-3 py-1.5 text-left text-sm ${
-                active
-                  ? 'bg-accent/15 font-medium text-accent'
-                  : 'text-ink-2 hover:bg-hairline'
-              }`}
+              className={cn(
+                'h-auto w-full justify-start gap-2 px-3 py-1.5 text-left text-sm',
+                active ? 'bg-accent/15 font-medium text-accent hover:bg-accent/15' : 'text-ink-2 hover:bg-hairline',
+              )}
             >
               <Icon size={16} />
               <span className="flex-1">{label}</span>
-            </button>
+            </Button>
           );
         })}
       </nav>
       {fda === false && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setView('first-run')}
-          className="mx-2 mt-auto mb-3 flex items-center gap-2 rounded-control px-3 py-1.5 text-left text-xs text-amber-600 hover:bg-hairline dark:text-amber-400"
+          className="mx-2 mt-auto mb-3 h-auto justify-start gap-2 px-3 py-1.5 text-left text-xs text-amber-600 hover:bg-hairline dark:text-amber-400"
         >
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
           <span className="flex-1">Limited disk access</span>
           <ShieldAlert size={14} />
-        </button>
+        </Button>
       )}
     </aside>
   );

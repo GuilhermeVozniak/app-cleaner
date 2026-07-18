@@ -3,6 +3,7 @@ import { useScanStore } from '../stores/scanStore'
 import { useCleanStore } from '../stores/cleanStore'
 import { useUiStore } from '../stores/uiStore'
 import { formatSize } from '../lib/format'
+import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { Category, ScanResult } from '../lib/types'
 
@@ -128,19 +129,12 @@ export function ConfirmModal() {
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
-            className="rounded-control px-4 py-2 text-sm text-ink hover:bg-hairline"
-            onClick={() => useCleanStore.getState().reset()}
-          >
+          <Button type="button" variant="ghost" onClick={() => useCleanStore.getState().reset()}>
             Cancel
-          </button>
-          <button
-            className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-40"
-            disabled={stats.itemCount === 0}
-            onClick={onClean}
-          >
+          </Button>
+          <Button type="button" variant="primary" disabled={stats.itemCount === 0} onClick={onClean}>
             Clean
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

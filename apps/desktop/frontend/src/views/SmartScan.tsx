@@ -159,7 +159,7 @@ export default function SmartScan() {
               type="button"
               aria-label="Dismiss scan error"
               onClick={() => setErrorDismissed(true)}
-              className="shrink-0 rounded p-0.5 hover:bg-hairline"
+              className="shrink-0 rounded p-0.5 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <X size={14} />
             </button>
@@ -184,7 +184,7 @@ export default function SmartScan() {
             <button
               type="button"
               onClick={() => setRiskyExpanded(!riskyOpen)}
-              className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-danger"
+              className="mb-2 flex items-center gap-1 rounded text-xs font-semibold uppercase tracking-wide text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {riskyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               Risky ({riskyCats.length})

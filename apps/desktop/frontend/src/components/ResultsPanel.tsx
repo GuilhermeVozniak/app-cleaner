@@ -3,6 +3,7 @@ import { useCleanStore } from '../stores/cleanStore'
 import { useScanStore } from '../stores/scanStore'
 import { useUiStore } from '../stores/uiStore'
 import { formatSize } from '../lib/format'
+import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { CleanSummary } from '../lib/types'
 
@@ -74,12 +75,14 @@ export function ResultsPanel() {
             <p className="text-moderate">
               Some items could not be removed because App Cleaner lacks Full Disk Access.
             </p>
-            <button
-              className="mt-2 rounded-control bg-moderate px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+            <Button
+              type="button"
+              variant="primary"
               onClick={() => void OpenFDASettings()}
+              className="mt-2 h-auto bg-moderate px-3 py-1.5 hover:brightness-110"
             >
               Grant Full Disk Access
-            </button>
+            </Button>
           </div>
         ) : null}
 
@@ -99,12 +102,9 @@ export function ResultsPanel() {
         ) : null}
 
         <div className="mt-6 flex justify-end">
-          <button
-            className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110"
-            onClick={onDone}
-          >
+          <Button type="button" variant="primary" onClick={onDone}>
             Done
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
