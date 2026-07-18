@@ -5,6 +5,12 @@ import { anySelectedRunning, contractHome } from '../lib/uninstallMath'
 import { ProgressOverlay } from '../components/ProgressOverlay'
 import { UninstallConfirm } from '../components/UninstallConfirm'
 import { useUninstallerStore } from '../stores/uninstallerStore'
+import { ActionBar } from '../components/ActionBar'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Checkbox } from '../components/ui/checkbox'
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
+import { Tooltip } from '../components/ui/tooltip'
 
 interface RowIconProps {
   path: string
@@ -32,7 +38,7 @@ function RowIcon({ path, name, icon, onLoaded }: RowIconProps) {
     )
   }
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-200 text-sm font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
+    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-hairline text-sm font-semibold text-ink-2">
       {name.charAt(0).toUpperCase()}
     </div>
   )
@@ -67,44 +73,50 @@ export function Uninstaller() {
   const firstScan = apps.length === 0 && scanning
   const store = useUninstallerStore.getState
 
+  const uninstallButton = (
+    <Button
+      variant="destructive"
+      disabled={selected.size === 0 || blocked}
+      title={blocked ? 'Quit the app first' : undefined}
+      onClick={() => store().openConfirm()}
+      className="ml-auto"
+    >
+      Uninstall {selected.size} app{selected.size === 1 ? '' : 's'}
+    </Button>
+  )
+
   return (
     <div className="flex h-full flex-col p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Uninstaller</h1>
         <div className="flex items-center gap-3">
           {scanning && apps.length > 0 ? (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">Refreshing…</span>
+            <span className="text-xs text-ink-2">Refreshing…</span>
           ) : lastScanAt ? (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Updated {timeAgo(lastScanAt)}
-            </span>
+            <span className="text-xs text-ink-2">Updated {timeAgo(lastScanAt)}</span>
           ) : null}
-          <button
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            disabled={scanning}
-            onClick={() => void store().refresh()}
-          >
+          <Button variant="glass" size="sm" disabled={scanning} onClick={() => void store().refresh()}>
             Re-check
-          </button>
+          </Button>
         </div>
       </div>
-      {startError ? (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{startError}</p>
-      ) : null}
+      {startError ? <p className="mt-2 text-sm text-danger">{startError}</p> : null}
 
       <div className="mt-4 flex-1 overflow-y-auto">
         {firstScan ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Scanning installed applications…</p>
+          <p className="text-sm text-ink-2">Scanning installed applications…</p>
         ) : (
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <ul className="space-y-1">
             {apps.map((app) => (
-              <li key={app.path} className="py-2">
+              <li
+                key={app.path}
+                className="glass-1 rounded-control px-3 py-2 transition hover:brightness-105"
+              >
                 <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label={`Select ${app.name} (${app.path})`}
                     checked={selected.has(app.path)}
-                    onChange={() => store().toggle(app.path)}
+                    onCheckedChange={() => store().toggle(app.path)}
                   />
                   <RowIcon
                     path={app.path}
@@ -112,33 +124,29 @@ export function Uninstaller() {
                     icon={icons[app.path]}
                     onLoaded={store().cacheIcon}
                   />
-                  <button
-                    className="flex-1 truncate text-left text-sm font-medium"
+                  <Button
+                    type="button"
+                    variant="ghost"
                     onClick={() => setExpanded(expanded === app.path ? null : app.path)}
+                    className="h-auto flex-1 justify-start truncate px-1.5 py-0.5 text-left text-sm font-medium"
                   >
                     {app.name}
-                  </button>
-                  {app.running ? (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
-                      Running
-                    </span>
-                  ) : null}
+                  </Button>
+                  {app.running ? <Badge variant="risky">Running</Badge> : null}
                   {app.relatedPaths.length > 0 ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      +{app.relatedPaths.length} related
-                    </span>
+                    <Badge variant="neutral">+{app.relatedPaths.length} related</Badge>
                   ) : null}
-                  <span className="w-24 text-right text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="nums w-24 text-right text-sm text-ink-2">
                     {formatSize(app.totalSize)}
                   </span>
                 </div>
                 {expanded === app.path ? (
                   <ul className="mt-2 space-y-0.5 pl-8">
-                    <li className="truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                    <li className="truncate font-mono text-xs text-ink-2">
                       {app.path} ({formatSize(app.appSize)})
                     </li>
                     {app.relatedPaths.map((r) => (
-                      <li key={r.path} className="truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                      <li key={r.path} className="truncate font-mono text-xs text-ink-2">
                         {contractHome(r.path)} ({formatSize(r.size)})
                       </li>
                     ))}
@@ -150,16 +158,20 @@ export function Uninstaller() {
         )}
       </div>
 
-      <div className="mt-4 flex justify-end border-t border-zinc-200 pt-4 dark:border-zinc-800">
-        <button
-          className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40"
-          disabled={selected.size === 0 || blocked}
-          title={blocked ? 'Quit the app first' : undefined}
-          onClick={() => store().openConfirm()}
-        >
-          Uninstall {selected.size} app{selected.size === 1 ? '' : 's'}
-        </button>
-      </div>
+      <ActionBar>
+        {blocked ? (
+          // Disabled buttons swallow pointer events (Button base sets
+          // disabled:pointer-events-none), so a focusable span carries the
+          // tooltip trigger and the native title.
+          <Tooltip content="Quit the app first">
+            <span tabIndex={0} title="Quit the app first" className="ml-auto inline-block">
+              {uninstallButton}
+            </span>
+          </Tooltip>
+        ) : (
+          uninstallButton
+        )}
+      </ActionBar>
 
       {phase === 'confirm' ? (
         <UninstallConfirm
@@ -188,43 +200,44 @@ export function Uninstaller() {
       ) : null}
 
       {phase === 'done' && done ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="w-[480px] rounded-xl bg-white p-6 shadow-2xl dark:bg-zinc-900">
-            <p className="text-2xl font-semibold text-green-600 dark:text-green-400">
+        <Dialog open>
+          <DialogContent
+            className="w-[480px]"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
+            <DialogTitle className="text-2xl font-semibold text-safe">
               {done.uninstalled} app{done.uninstalled === 1 ? '' : 's'} uninstalled ·{' '}
               {formatSize(done.freedSpace)} freed
-            </p>
+            </DialogTitle>
             {skippedApps.length > 0 ? (
-              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+              <p className="mt-1 text-sm text-moderate">
                 {skippedApps.length} app{skippedApps.length === 1 ? '' : 's'} already removed — skipped:{' '}
                 {skippedApps.join(', ')}
               </p>
             ) : null}
             {done.cancelled ? (
-              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">Cancelled — partial results.</p>
+              <p className="mt-1 text-sm text-moderate">Cancelled — partial results.</p>
             ) : null}
             {done.error ? (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{done.error}</p>
+              <p className="mt-1 text-sm text-danger">{done.error}</p>
             ) : null}
             {done.errors?.length ? (
               <ul className="mt-3 space-y-1">
                 {done.errors.map((e) => (
-                  <li key={e} className="text-xs text-red-600 dark:text-red-400">
+                  <li key={e} className="text-xs text-danger">
                     ✗ {e}
                   </li>
                 ))}
               </ul>
             ) : null}
             <div className="mt-6 flex justify-end">
-              <button
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                onClick={() => store().finish()}
-              >
+              <Button type="button" variant="primary" onClick={() => store().finish()}>
                 Done
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   )

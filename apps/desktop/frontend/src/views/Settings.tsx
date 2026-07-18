@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useUiStore } from '../stores/uiStore'
 import { toForm, fromForm } from '../lib/settings'
 import type { SettingsForm } from '../lib/settings'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Switch } from '../components/ui/switch'
 
 export function Settings() {
   const config = useUiStore((s) => s.config)
@@ -14,7 +17,7 @@ export function Settings() {
   }, [config, form])
 
   if (!form) {
-    return <p className="p-6 text-sm text-zinc-500 dark:text-zinc-400">Loading settings…</p>
+    return <p className="p-6 text-sm text-ink-2">Loading settings…</p>
   }
 
   const patch = (p: Partial<SettingsForm>) => setForm({ ...form, ...p })
@@ -33,20 +36,18 @@ export function Settings() {
   }
 
   const row = 'flex items-center justify-between gap-4 py-3'
-  const input =
-    'w-28 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900'
   const area =
-    'mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-900'
+    'mt-1 w-full rounded-control border border-hairline bg-surface-solid/60 px-2 py-1 font-mono text-xs text-ink'
 
   return (
     <div className="max-w-xl p-6">
-      <h1 className="text-xl font-semibold">Settings</h1>
+      <h1 className="text-xl font-semibold text-ink">Settings</h1>
 
-      <div className="mt-4 divide-y divide-zinc-200 dark:divide-zinc-800">
+      <div className="mt-4 divide-y divide-hairline">
         <label className={row}>
-          <span className="text-sm">Downloads considered old after (days, 1–365)</span>
-          <input
-            className={input}
+          <span className="text-sm text-ink">Downloads considered old after (days, 1–365)</span>
+          <Input
+            className="w-28"
             type="number"
             min={1}
             max={365}
@@ -56,9 +57,9 @@ export function Settings() {
         </label>
 
         <label className={row}>
-          <span className="text-sm">Large-file threshold (MB, 1–102400)</span>
-          <input
-            className={input}
+          <span className="text-sm text-ink">Large-file threshold (MB, 1–102400)</span>
+          <Input
+            className="w-28"
             type="number"
             min={1}
             max={102400}
@@ -68,18 +69,18 @@ export function Settings() {
         </label>
 
         <label className={row}>
-          <span className="text-sm">Back up by default (moderate/risky categories)</span>
-          <input
-            type="checkbox"
+          <span className="text-sm text-ink">Back up by default (moderate/risky categories)</span>
+          <Switch
+            aria-label="Back up by default (moderate/risky categories)"
             checked={form.backupByDefault}
-            onChange={(e) => patch({ backupByDefault: e.target.checked })}
+            onCheckedChange={(checked) => patch({ backupByDefault: checked })}
           />
         </label>
 
         <label className={row}>
-          <span className="text-sm">Backup retention (days, 1–365)</span>
-          <input
-            className={input}
+          <span className="text-sm text-ink">Backup retention (days, 1–365)</span>
+          <Input
+            className="w-28"
             type="number"
             min={1}
             max={365}
@@ -89,9 +90,9 @@ export function Settings() {
         </label>
 
         <label className={row}>
-          <span className="text-sm">Scan concurrency (1–16)</span>
-          <input
-            className={input}
+          <span className="text-sm text-ink">Scan concurrency (1–16)</span>
+          <Input
+            className="w-28"
             type="number"
             min={1}
             max={16}
@@ -101,18 +102,18 @@ export function Settings() {
         </label>
 
         <label className={row}>
-          <span className="text-sm">Show risky categories by default</span>
-          <input
-            type="checkbox"
+          <span className="text-sm text-ink">Show risky categories by default</span>
+          <Switch
+            aria-label="Show risky categories by default"
             checked={form.showRisky}
-            onChange={(e) => patch({ showRisky: e.target.checked })}
+            onCheckedChange={(checked) => patch({ showRisky: checked })}
           />
         </label>
 
         <label className="block py-3">
-          <span className="text-sm">Extra languages to keep (comma-separated, e.g. pt-BR, de)</span>
-          <input
-            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          <span className="text-sm text-ink">Extra languages to keep (comma-separated, e.g. pt-BR, de)</span>
+          <Input
+            className="mt-1 w-full"
             type="text"
             value={form.keepLanguages}
             onChange={(e) => patch({ keepLanguages: e.target.value })}
@@ -120,7 +121,7 @@ export function Settings() {
         </label>
 
         <label className="block py-3">
-          <span className="text-sm">Extra node_modules scan roots (one path per line, max 50)</span>
+          <span className="text-sm text-ink">Extra node_modules scan roots (one path per line, max 50)</span>
           <textarea
             className={area}
             rows={3}
@@ -130,7 +131,7 @@ export function Settings() {
         </label>
 
         <label className="block py-3">
-          <span className="text-sm">Extra project scan roots (one path per line, max 50)</span>
+          <span className="text-sm text-ink">Extra project scan roots (one path per line, max 50)</span>
           <textarea
             className={area}
             rows={3}
@@ -141,13 +142,10 @@ export function Settings() {
       </div>
 
       <div className="mt-4 flex items-center gap-3">
-        <button
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-          onClick={() => void save()}
-        >
+        <Button type="button" variant="primary" onClick={() => void save()}>
           Save
-        </button>
-        {toast ? <span className="text-sm text-green-600 dark:text-green-400">{toast}</span> : null}
+        </Button>
+        {toast ? <span className="text-sm text-safe">{toast}</span> : null}
       </div>
     </div>
   )

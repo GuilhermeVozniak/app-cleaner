@@ -107,6 +107,11 @@ describe('<Uninstaller />', () => {
     const btn = screen.getByRole('button', { name: /uninstall 1 app/i }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
     expect(btn.title).toBe('Quit the app first')
+    // The disabled button swallows pointer events, so the hint must be
+    // reachable via a focusable, title-carrying tooltip-trigger wrapper.
+    const trigger = btn.closest('span[title="Quit the app first"]')
+    expect(trigger).not.toBeNull()
+    expect(trigger?.getAttribute('tabindex')).toBe('0')
   })
 
   it('enables Uninstall for a non-running selection and confirms into StartUninstall', async () => {
@@ -164,13 +169,13 @@ describe('<Uninstaller />', () => {
 
     // Selecting the first path only: checkbox state is independent per path.
     fireEvent.click(checkboxes[0])
-    expect((checkboxes[0] as HTMLInputElement).checked).toBe(true)
-    expect((checkboxes[1] as HTMLInputElement).checked).toBe(false)
+    expect(checkboxes[0].getAttribute('aria-checked')).toBe('true')
+    expect(checkboxes[1].getAttribute('aria-checked')).toBe('false')
     expect(screen.getByRole('button', { name: /uninstall 1 app/i })).toBeDefined()
 
     // Selecting the second path too: both are independently checked.
     fireEvent.click(checkboxes[1])
-    expect((checkboxes[1] as HTMLInputElement).checked).toBe(true)
+    expect(checkboxes[1].getAttribute('aria-checked')).toBe('true')
     const btn = screen.getByRole('button', { name: /uninstall 2 apps/i }) as HTMLButtonElement
     fireEvent.click(btn)
 

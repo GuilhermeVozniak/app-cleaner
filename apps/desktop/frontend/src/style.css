@@ -1,5 +1,98 @@
 @import "tailwindcss";
 
+@theme {
+  --color-canvas: #f5f6f8;
+  --color-surface-solid: #ffffff;
+  --color-aurora-sky: #7cb8ff;
+  --color-aurora-mint: #7fe0c3;
+  --color-aurora-violet: #c6b3ff;
+  --color-glass-1: rgb(255 255 255 / 0.55);
+  --color-glass-2: rgb(255 255 255 / 0.68);
+  --color-ink: #1d1d1f;
+  --color-ink-2: #6e6e73;
+  --color-accent: #0a84ff;
+  --color-danger: #ff453a;
+  --color-safe: #30d158;
+  --color-moderate: #ff9f0a;
+  --color-risky: #ff453a;
+  --color-hairline: rgb(0 0 0 / 0.08);
+  --radius-shell: 20px;
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
+  --glass-shadow: 0 8px 24px rgb(0 0 0 / 0.10);
+  --glass-shadow-2: 0 16px 40px rgb(0 0 0 / 0.14);
+  --glass-ring: rgb(255 255 255 / 0.30);
+  --aurora-alpha: 0.35;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #0b0e14;
+    --color-surface-solid: #171a22;
+    --color-glass-1: rgb(23 26 34 / 0.55);
+    --color-glass-2: rgb(28 32 42 / 0.68);
+    --color-ink: #f5f5f7;
+    --color-ink-2: #98989d;
+    --color-hairline: rgb(255 255 255 / 0.10);
+    --glass-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+    --glass-shadow-2: 0 16px 40px rgb(0 0 0 / 0.45);
+    --glass-ring: rgb(255 255 255 / 0.12);
+    --aurora-alpha: 0.16;
+  }
+}
+
+@utility glass-1 {
+  background: var(--color-glass-1);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--glass-ring);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), var(--glass-shadow);
+}
+
+@utility glass-2 {
+  background: var(--color-glass-2);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid var(--glass-ring);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), var(--glass-shadow-2);
+}
+
+@utility nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-1,
+  .glass-2 {
+    background: var(--color-surface-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes lens-sweep {
+  to { transform: rotate(360deg); }
+}
+.lens-sweep {
+  animation: lens-sweep 6s linear infinite;
+}
+
+@keyframes materialize {
+  from { opacity: 0; transform: scale(0.98); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
 html,
 body,
 #root {
@@ -15,6 +108,8 @@ body {
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
+  color: var(--color-ink);
+  background: var(--color-canvas);
 }
 
 input,

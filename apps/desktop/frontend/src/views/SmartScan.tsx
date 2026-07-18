@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Search, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, X } from 'lucide-react';
 import CategoryCard from '../components/CategoryCard';
 import EmptyState from '../components/EmptyState';
+import { ScanLens } from '../components/ScanLens';
+import { ActionBar } from '../components/ActionBar';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import { formatSize } from '../lib/format';
 import type { Category } from '../lib/types';
 import { useCleanStore } from '../stores/cleanStore';
@@ -56,17 +60,11 @@ export default function SmartScan() {
   if (status === 'idle') {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-6">
-        <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">App Cleaner</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <h1 className="text-3xl font-bold text-ink">App Cleaner</h1>
+        <p className="text-sm text-ink-2">
           Find caches, logs, and leftover junk taking up space on your Mac.
         </p>
-        <button
-          type="button"
-          onClick={() => void useScanStore.getState().startScan()}
-          className="flex items-center gap-2 rounded-full bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg hover:bg-blue-700"
-        >
-          <Search size={20} /> Smart Scan
-        </button>
+        <ScanLens state="idle" onScan={() => void useScanStore.getState().startScan()} />
       </div>
     );
   }
@@ -74,34 +72,40 @@ export default function SmartScan() {
   // ---- Scanning state ----
   if (status === 'scanning') {
     return (
-      <div className="flex h-full flex-col px-8 py-8">
-        <div className="mb-4 flex items-center gap-3">
-          <Loader2 size={18} className="animate-spin text-blue-600 dark:text-blue-400" />
-          <span className="text-sm font-medium">
-            Scanning… {progress.completed}/{progress.total}
-          </span>
-          <button
+      <div className="flex h-full flex-col items-center gap-6 overflow-y-auto px-8 py-8">
+        <ScanLens
+          state="scanning"
+          completed={progress.completed}
+          total={progress.total}
+          totalSize={totalSize}
+          onScan={() => {}}
+        />
+        <div className="flex w-full max-w-xl items-center">
+          <Button
             type="button"
+            variant="glass"
+            size="sm"
             onClick={() => useScanStore.getState().cancelScan()}
-            className="ml-auto rounded-md border border-neutral-300 px-3 py-1 text-sm text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            className="ml-auto"
           >
             Cancel
-          </button>
+          </Button>
         </div>
-        <div className="flex-1 space-y-1 overflow-y-auto">
+        <div className="w-full max-w-xl flex-1 space-y-1">
           {categories.map((c) => {
             const r = results[c.id];
             return (
-              <div key={c.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm">
-                <span className="w-56 truncate text-neutral-800 dark:text-neutral-200">
-                  {c.name}
-                </span>
+              <div
+                key={c.id}
+                className="glass-1 flex items-center gap-2 rounded-control px-2 py-1.5 text-sm"
+              >
+                <span className="w-56 truncate text-ink">{c.name}</span>
                 {r ? (
-                  <span className="text-neutral-500 dark:text-neutral-400">
+                  <span className="nums text-ink-2">
                     {itemCounts[c.id] ?? 0} items · {formatSize(r.totalSize)}
                   </span>
                 ) : (
-                  <span className="text-neutral-400 dark:text-neutral-600">pending…</span>
+                  <span className="text-ink-2">pending…</span>
                 )}
               </div>
             );
@@ -145,36 +149,34 @@ export default function SmartScan() {
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="animate-[materialize_220ms_var(--ease-glass)] flex h-full flex-col">
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {scanError && !errorDismissed && (
-          <div className="mb-3 flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          <div className="glass-1 mb-3 flex items-start gap-2 rounded-control px-3 py-2 text-xs text-moderate">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span className="min-w-0 flex-1">{scanError}</span>
             <button
               type="button"
               aria-label="Dismiss scan error"
               onClick={() => setErrorDismissed(true)}
-              className="shrink-0 rounded p-0.5 hover:bg-amber-100 dark:hover:bg-amber-900"
+              className="shrink-0 rounded p-0.5 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <X size={14} />
             </button>
           </div>
         )}
         {scanCancelled && (
-          <div className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
-            Scan cancelled — partial results
-          </div>
+          <div className="mb-3 text-xs text-ink-2">Scan cancelled — partial results</div>
         )}
-        <div className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+        <div className="mb-4 text-lg font-semibold text-ink">
           Found {formatSize(totalSize)} that can be cleaned
         </div>
         {groups.map((g) => (
           <section key={g.group} className="mb-5">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-2">
               {g.group}
             </h2>
-            <div className="space-y-2">{g.categories.map(renderCard)}</div>
+            <Card className="space-y-2 p-3">{g.categories.map(renderCard)}</Card>
           </section>
         ))}
         {riskyCats.length > 0 && (
@@ -182,28 +184,29 @@ export default function SmartScan() {
             <button
               type="button"
               onClick={() => setRiskyExpanded(!riskyOpen)}
-              className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400"
+              className="mb-2 flex items-center gap-1 rounded text-xs font-semibold uppercase tracking-wide text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {riskyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               Risky ({riskyCats.length})
             </button>
-            {riskyOpen && <div className="space-y-2">{riskyCats.map(renderCard)}</div>}
+            {riskyOpen && <Card className="space-y-2 p-3">{riskyCats.map(renderCard)}</Card>}
           </section>
         )}
       </div>
-      <footer className="flex items-center gap-4 border-t border-neutral-200 px-6 py-3 dark:border-neutral-800">
-        <span className="text-sm text-neutral-600 dark:text-neutral-400">
+      <ActionBar>
+        <span className="nums text-sm text-ink-2">
           {totals.items} items · {formatSize(totals.size)} selected
         </span>
-        <button
+        <Button
           type="button"
+          variant="primary"
           disabled={totals.items === 0}
           onClick={() => useCleanStore.getState().openConfirm()}
-          className="ml-auto rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-auto"
         >
           Clean
-        </button>
-      </footer>
+        </Button>
+      </ActionBar>
     </div>
   );
 }

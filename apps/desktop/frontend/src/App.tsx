@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { CheckFDA } from '../wailsjs/go/main/App';
+import { Backdrop } from './components/Backdrop';
 import Sidebar from './components/Sidebar';
 import FirstRun from './views/FirstRun';
 import SmartScan from './views/SmartScan';
@@ -15,7 +16,7 @@ import { useUiStore } from './stores/uiStore';
 // SmartScan (Task 23), CategoryDetail (Task 24), Uninstaller/Maintenance/Backups/Settings (later tasks).
 function Placeholder({ title }: { title: string }) {
   return (
-    <div className="flex h-full items-center justify-center text-neutral-400 dark:text-neutral-500">
+    <div className="flex h-full items-center justify-center text-ink-2">
       {title}
     </div>
   );
@@ -38,16 +39,25 @@ function App() {
 
   if (view === 'first-run') {
     return (
-      <div className="h-full bg-white dark:bg-neutral-900">
+      <div className="h-full bg-surface-solid">
+        <div
+          className="fixed inset-x-0 top-0 h-7 z-20"
+          style={{ '--wails-draggable': 'drag' } as CSSProperties}
+        />
         <FirstRun />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
+    <div className="flex h-full text-ink">
+      <Backdrop />
+      <div
+        className="fixed inset-x-0 top-0 h-7 z-20"
+        style={{ '--wails-draggable': 'drag' } as CSSProperties}
+      />
       <Sidebar />
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main className="relative z-10 min-w-0 flex-1 overflow-y-auto">
         {view === 'smart-scan' && <SmartScan />}
         {view === 'category' && <CategoryDetail />}
         {view === 'uninstaller' && <Uninstaller />}

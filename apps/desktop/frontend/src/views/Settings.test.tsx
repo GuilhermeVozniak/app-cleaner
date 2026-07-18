@@ -81,17 +81,17 @@ describe('<Settings />', () => {
     expect(await screen.findByText(/Save failed: Error: disk full/)).toBeInTheDocument()
   })
 
-  it('toggles the backup-by-default and show-risky checkboxes', async () => {
+  it('toggles the backup-by-default and show-risky switches', async () => {
     GetConfigMock.mockResolvedValue(CONFIG)
     render(<Settings />)
-    const backupCheckbox = (await screen.findByLabelText(/Back up by default/)) as HTMLInputElement
-    const riskyCheckbox = screen.getByLabelText(/Show risky categories by default/) as HTMLInputElement
-    expect(backupCheckbox.checked).toBe(true)
-    expect(riskyCheckbox.checked).toBe(false)
-    fireEvent.click(backupCheckbox)
-    fireEvent.click(riskyCheckbox)
-    expect(backupCheckbox.checked).toBe(false)
-    expect(riskyCheckbox.checked).toBe(true)
+    const backupSwitch = await screen.findByLabelText(/Back up by default/)
+    const riskySwitch = screen.getByLabelText(/Show risky categories by default/)
+    expect(backupSwitch.getAttribute('aria-checked')).toBe('true')
+    expect(riskySwitch.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(backupSwitch)
+    fireEvent.click(riskySwitch)
+    expect(backupSwitch.getAttribute('aria-checked')).toBe('false')
+    expect(riskySwitch.getAttribute('aria-checked')).toBe('true')
   })
 
   it('edits the keepLanguages and extra scan-root text fields', async () => {

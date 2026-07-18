@@ -129,8 +129,8 @@ describe('<ConfirmModal />', () => {
   it('backup toggle defaults OFF for a safe-only selection', () => {
     useScanStore.setState({ results: { 'temp-files': tempFiles }, selected: { 'temp-files': 'all' } })
     render(<ConfirmModal />)
-    const toggle = screen.getByLabelText(/back up items before deleting/i) as HTMLInputElement
-    expect(toggle.checked).toBe(false)
+    const toggle = screen.getByLabelText(/back up items before deleting/i)
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
   })
 
   it('backup toggle defaults ON for a mixed selection and shows the risky safety note', () => {
@@ -139,8 +139,8 @@ describe('<ConfirmModal />', () => {
       selected: { 'temp-files': 'all', downloads: 'all' },
     })
     render(<ConfirmModal />)
-    const toggle = screen.getByLabelText(/back up items before deleting/i) as HTMLInputElement
-    expect(toggle.checked).toBe(true)
+    const toggle = screen.getByLabelText(/back up items before deleting/i)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
     expect(screen.getByText('May contain important files you forgot about')).toBeDefined()
   })
 

@@ -1,5 +1,7 @@
 import { Archive, Settings, ShieldAlert, Sparkles, Trash2, Wrench } from 'lucide-react';
+import { cn } from '../lib/cn';
 import { useUiStore, type View } from '../stores/uiStore';
+import { Button } from './ui/button';
 
 const NAV: Array<{ view: View; label: string; Icon: typeof Sparkles }> = [
   { view: 'smart-scan', label: 'Smart Scan', Icon: Sparkles },
@@ -15,40 +17,41 @@ export default function Sidebar() {
   const setView = useUiStore((s) => s.setView);
 
   return (
-    <aside className="flex w-52 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50 pt-10 dark:border-neutral-800 dark:bg-neutral-950">
-      <div className="px-4 pb-4 text-sm font-semibold text-neutral-500 dark:text-neutral-400">
+    <aside className="glass-2 m-2.5 mr-0 z-10 flex w-52 shrink-0 flex-col rounded-shell pt-8">
+      <div className="px-4 pb-4 text-sm font-semibold text-ink-2">
         App Cleaner
       </div>
       <nav className="flex flex-col gap-1 px-2">
         {NAV.map(({ view: v, label, Icon }) => {
           const active = view === v || (v === 'smart-scan' && view === 'category');
           return (
-            <button
+            <Button
               key={v}
               type="button"
+              variant="ghost"
               onClick={() => setView(v)}
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
-                active
-                  ? 'bg-blue-600 text-white'
-                  : 'text-neutral-700 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800'
-              }`}
+              className={cn(
+                'h-auto w-full justify-start gap-2 px-3 py-1.5 text-left text-sm',
+                active ? 'bg-accent/15 font-medium text-accent hover:bg-accent/15' : 'text-ink-2 hover:bg-hairline',
+              )}
             >
               <Icon size={16} />
               <span className="flex-1">{label}</span>
-            </button>
+            </Button>
           );
         })}
       </nav>
       {fda === false && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setView('first-run')}
-          className="mx-2 mt-auto mb-3 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-amber-600 hover:bg-neutral-200 dark:text-amber-400 dark:hover:bg-neutral-800"
+          className="mx-2 mt-auto mb-3 h-auto justify-start gap-2 px-3 py-1.5 text-left text-xs text-moderate hover:bg-hairline"
         >
-          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-moderate" />
           <span className="flex-1">Limited disk access</span>
           <ShieldAlert size={14} />
-        </button>
+        </Button>
       )}
     </aside>
   );
