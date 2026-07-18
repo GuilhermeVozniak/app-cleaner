@@ -2,8 +2,10 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -343,5 +345,109 @@ func TestDeleteValidatesContainment(t *testing.T) {
 	}
 	if _, err := os.Stat(session); !os.IsNotExist(err) {
 		t.Fatal("session not removed")
+	}
+}
+
+func TestBackupItemsWritesManifestOfMovedItemsOnly(t *testing.T) {
+	home := t.TempDir()
+	inHome := filepath.Join(home, "Library", "Caches", "a.log")
+	if err := os.MkdirAll(filepath.Dir(inHome), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(inHome, []byte("12345"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "b.log") // not under home -> NotBackedUp
+	if err := os.WriteFile(outside, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(home)
+	out := m.BackupItems(context.Background(), home, []core.CleanableItem{
+		{Path: inHome, Size: 5, Name: "a.log"},
+		{Path: outside, Size: 1, Name: "b.log"},
+	}, nil)
+	if out.BackedUp != 1 || len(out.NotBackedUp) != 1 {
+		t.Fatalf("outcome = %+v, want 1 moved / 1 not backed up", out)
+	}
+	data, err := os.ReadFile(filepath.Join(out.SessionDir, "items.json"))
+	if err != nil {
+		t.Fatalf("manifest not written: %v", err)
+	}
+	var items []Item
+	if err := json.Unmarshal(data, &items); err != nil {
+		t.Fatalf("manifest not valid JSON: %v", err)
+	}
+	want := []Item{{Path: inHome, Name: "a.log", Size: 5}}
+	if !reflect.DeepEqual(items, want) {
+		t.Fatalf("manifest = %+v, want moved items only %+v", items, want)
+	}
+}
+
+func TestBackupItemsManifestRecordsMovedSoFarOnCancel(t *testing.T) {
+	home := t.TempDir()
+	mk := func(name string) core.CleanableItem {
+		p := filepath.Join(home, "Library", "Caches", name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return core.CleanableItem{Path: p, Size: 1, Name: name}
+	}
+	items := []core.CleanableItem{mk("one"), mk("two")}
+	ctx, cancel := context.WithCancel(context.Background())
+	m := NewManager(home)
+	out := m.BackupItems(ctx, home, items, func(current, total int, it core.CleanableItem) {
+		if current == 2 {
+			cancel() // fires BEFORE item 2 is processed -> only item 1 moves
+		}
+	})
+	if out.BackedUp != 1 {
+		t.Fatalf("BackedUp = %d, want 1 (cancelled before second item)", out.BackedUp)
+	}
+	data, err := os.ReadFile(filepath.Join(out.SessionDir, "items.json"))
+	if err != nil {
+		t.Fatalf("manifest not written on cancel: %v", err)
+	}
+	var got []Item
+	if err := json.Unmarshal(data, &got); err != nil || len(got) != 1 || got[0].Name != "one" {
+		t.Fatalf("manifest = %+v (err %v), want exactly the moved-so-far item 'one'", got, err)
+	}
+}
+
+func TestBackupItemsNoManifestWhenNothingMoved(t *testing.T) {
+	home := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "x.log")
+	if err := os.WriteFile(outside, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(home)
+	out := m.BackupItems(context.Background(), home, []core.CleanableItem{{Path: outside, Size: 1, Name: "x.log"}}, nil)
+	if _, err := os.Stat(filepath.Join(out.SessionDir, "items.json")); !os.IsNotExist(err) {
+		t.Fatalf("manifest must not be written when nothing moved (stat err = %v)", err)
+	}
+}
+
+func TestRestoreSkipsManifestWithoutCountingIt(t *testing.T) {
+	home := t.TempDir()
+	p := filepath.Join(home, "Library", "Caches", "c.log")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(home)
+	out := m.BackupItems(context.Background(), home, []core.CleanableItem{{Path: p, Size: 4, Name: "c.log"}}, nil)
+	res := m.Restore(out.SessionDir, home)
+	if res.Failed != 0 || res.Restored != 1 {
+		t.Fatalf("RestoreResult = %+v, want 1 restored / 0 failed (manifest skipped, not counted)", res)
+	}
+	if _, err := os.Stat(p); err != nil {
+		t.Fatalf("file not restored: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out.SessionDir, "items.json")); err != nil {
+		t.Fatal("manifest must remain in the session after restore")
 	}
 }

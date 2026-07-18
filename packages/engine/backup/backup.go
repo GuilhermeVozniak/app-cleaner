@@ -5,6 +5,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,6 +18,17 @@ import (
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fsx"
 )
+
+// manifestName is the session-root manifest listing the moved items.
+// Restore must skip it; Details reads it. Never under HOME/.
+const manifestName = "items.json"
+
+// Item is one moved item as recorded in the session manifest.
+type Item struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
 
 // now is the determinism seam for session naming; tests override it.
 var now = time.Now
@@ -86,6 +98,7 @@ func (m *Manager) BackupItems(ctx context.Context, home string, items []core.Cle
 	}
 	out.SessionDir = sessionDir
 	total := len(items)
+	var manifest []Item
 	for i, it := range items {
 		if progress != nil {
 			progress(i+1, total, it)
@@ -111,6 +124,14 @@ func (m *Manager) BackupItems(ctx context.Context, home string, items []core.Cle
 		}
 		out.BackedUp++
 		out.Moved = append(out.Moved, it.Path)
+		manifest = append(manifest, Item{Path: it.Path, Name: it.Name, Size: it.Size})
+	}
+	if len(manifest) > 0 {
+		// Non-fatal: the moves already succeeded; a missing manifest only
+		// degrades Details to the walk fallback.
+		if data, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+			_ = os.WriteFile(filepath.Join(sessionDir, manifestName), data, 0o644)
+		}
 	}
 	return out
 }
@@ -204,6 +225,9 @@ func (m *Manager) Restore(sessionDir, home string) RestoreResult {
 			res.Failed++
 			res.Errors = append(res.Errors, fmt.Sprintf("Failed to resolve %s: %v", path, rerr))
 			return nil
+		}
+		if rel == manifestName {
+			return nil // session metadata, not user data — never restored, never counted
 		}
 		target, terr := restoreTarget(rel, home)
 		if terr != nil {
