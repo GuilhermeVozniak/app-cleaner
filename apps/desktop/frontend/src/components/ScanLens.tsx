@@ -32,7 +32,7 @@ export function ScanLens({ state, completed = 0, total = 0, totalSize = 0, onSca
   )
   if (state === 'scanning') {
     return (
-      <div className="relative flex h-56 w-56 items-center justify-center" role="status">
+      <div className="relative flex h-56 w-56 shrink-0 items-center justify-center" role="status">
         {ring}
         <div className="relative z-10 flex flex-col items-center gap-1">
           <span className="nums text-2xl font-semibold text-ink">{completed}/{total}</span>
@@ -46,7 +46,7 @@ export function ScanLens({ state, completed = 0, total = 0, totalSize = 0, onSca
       type="button"
       onClick={onScan}
       className={cn(
-        'group relative flex h-56 w-56 items-center justify-center rounded-full',
+        'group relative flex h-56 w-56 shrink-0 items-center justify-center rounded-full',
         'transition-transform duration-150 hover:scale-[1.02] active:scale-[0.99]',
         'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent',
       )}

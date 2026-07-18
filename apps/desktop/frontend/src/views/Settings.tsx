@@ -3,6 +3,7 @@ import { useUiStore } from '../stores/uiStore'
 import { toForm, fromForm } from '../lib/settings'
 import type { SettingsForm } from '../lib/settings'
 import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
 
@@ -40,10 +41,10 @@ export function Settings() {
     'mt-1 w-full rounded-control border border-hairline bg-surface-solid/60 px-2 py-1 font-mono text-xs text-ink'
 
   return (
-    <div className="max-w-xl p-6">
+    <div className="max-w-2xl p-6">
       <h1 className="text-xl font-semibold text-ink">Settings</h1>
 
-      <div className="mt-4 divide-y divide-hairline">
+      <Card className="mt-4 divide-y divide-hairline px-5 py-1">
         <label className={row}>
           <span className="text-sm text-ink">Downloads considered old after (days, 1–365)</span>
           <Input
@@ -139,7 +140,7 @@ export function Settings() {
             onChange={(e) => patch({ projectsPaths: e.target.value })}
           />
         </label>
-      </div>
+      </Card>
 
       <div className="mt-4 flex items-center gap-3">
         <Button type="button" variant="primary" onClick={() => void save()}>

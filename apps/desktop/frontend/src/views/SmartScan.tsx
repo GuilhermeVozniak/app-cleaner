@@ -97,15 +97,15 @@ export default function SmartScan() {
             return (
               <div
                 key={c.id}
-                className="glass-1 flex items-center gap-2 rounded-control px-2 py-1.5 text-sm"
+                className="glass-1 flex items-center gap-2 rounded-control px-3 py-1.5 text-sm"
               >
-                <span className="w-56 truncate text-ink">{c.name}</span>
+                <span className="min-w-0 flex-1 truncate text-ink">{c.name}</span>
                 {r ? (
-                  <span className="nums text-ink-2">
+                  <span className="nums shrink-0 text-ink-2">
                     {itemCounts[c.id] ?? 0} items · {formatSize(r.totalSize)}
                   </span>
                 ) : (
-                  <span className="text-ink-2">pending…</span>
+                  <span className="shrink-0 text-ink-2">pending…</span>
                 )}
               </div>
             );

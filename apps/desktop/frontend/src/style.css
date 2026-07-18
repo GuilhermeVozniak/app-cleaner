@@ -30,15 +30,15 @@
   :root {
     --color-canvas: #0b0e14;
     --color-surface-solid: #171a22;
-    --color-glass-1: rgb(23 26 34 / 0.55);
-    --color-glass-2: rgb(28 32 42 / 0.68);
+    --color-glass-1: rgb(28 33 44 / 0.45);
+    --color-glass-2: rgb(33 38 50 / 0.6);
     --color-ink: #f5f5f7;
     --color-ink-2: #98989d;
     --color-hairline: rgb(255 255 255 / 0.10);
     --glass-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
     --glass-shadow-2: 0 16px 40px rgb(0 0 0 / 0.45);
-    --glass-ring: rgb(255 255 255 / 0.12);
-    --aurora-alpha: 0.16;
+    --glass-ring: rgb(255 255 255 / 0.14);
+    --aurora-alpha: 0.3;
   }
 }
 
