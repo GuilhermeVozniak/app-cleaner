@@ -81,6 +81,18 @@
   }
 }
 
+@keyframes lens-sweep {
+  to { transform: rotate(360deg); }
+}
+.lens-sweep {
+  animation: lens-sweep 6s linear infinite;
+}
+
+@keyframes materialize {
+  from { opacity: 0; transform: scale(0.98); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
 html,
 body,
 #root {
