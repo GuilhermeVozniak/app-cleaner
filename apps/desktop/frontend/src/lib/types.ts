@@ -84,6 +84,18 @@ export interface BackupInfo {
   size: number;
 }
 
+export interface BackupItem {
+  path: string;
+  name: string;
+  size: number;
+}
+
+export interface BackupDetails {
+  items: BackupItem[];
+  fromManifest: boolean;
+  truncated: number;
+}
+
 export interface RestoreResult {
   restored: number;
   failed: number;
