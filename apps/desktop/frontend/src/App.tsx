@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { CheckFDA } from '../wailsjs/go/main/App';
+import { Backdrop } from './components/Backdrop';
 import Sidebar from './components/Sidebar';
 import FirstRun from './views/FirstRun';
 import SmartScan from './views/SmartScan';
@@ -45,9 +46,14 @@ function App() {
   }
 
   return (
-    <div className="flex h-full bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
+    <div className="flex h-full text-ink">
+      <Backdrop />
+      <div
+        className="fixed inset-x-0 top-0 h-7 z-20"
+        style={{ '--wails-draggable': 'drag' } as CSSProperties}
+      />
       <Sidebar />
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main className="relative z-10 min-w-0 flex-1 overflow-y-auto">
         {view === 'smart-scan' && <SmartScan />}
         {view === 'category' && <CategoryDetail />}
         {view === 'uninstaller' && <Uninstaller />}

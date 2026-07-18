@@ -19,14 +19,14 @@ describe('<Sidebar />', () => {
     useUiStore.setState({ view: 'category', activeCategoryId: 'trash' })
     render(<Sidebar />)
     const btn = screen.getByText('Smart Scan').closest('button')!
-    expect(btn.className).toContain('bg-blue-600')
+    expect(btn.className).toContain('bg-accent/15')
   })
 
   it('does not highlight Smart Scan for an unrelated view', () => {
     useUiStore.setState({ view: 'settings' })
     render(<Sidebar />)
     const btn = screen.getByText('Smart Scan').closest('button')!
-    expect(btn.className).not.toContain('bg-blue-600')
+    expect(btn.className).not.toContain('bg-accent/15')
   })
 
   it('clicking a nav item calls setView', () => {
