@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { formatSize } from '../lib/format'
 import { contractHome, selectionTotals } from '../lib/uninstallMath'
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { AppInfo } from '../lib/types'
 
 export interface UninstallConfirmProps {
@@ -14,17 +15,21 @@ export function UninstallConfirm({ apps, onCancel, onConfirm }: UninstallConfirm
   const totals = selectionTotals(apps, new Set(apps.map((a) => a.path)))
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-      <div className="w-[520px] max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl dark:bg-zinc-900">
-        <h2 className="text-lg font-semibold">Uninstall applications</h2>
+    <Dialog open>
+      <DialogContent
+        className="max-h-[80vh]"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogTitle className="text-lg font-semibold">Uninstall applications</DialogTitle>
         <ul className="mt-4 space-y-3">
           {apps.map((app) => (
             <li key={app.path} className="text-sm">
               <span className="font-medium">✗ {app.name}</span>{' '}
-              <span className="text-zinc-500 dark:text-zinc-400">({formatSize(app.totalSize)})</span>
+              <span className="text-ink-2">({formatSize(app.totalSize)})</span>
               <ul className="mt-1 space-y-0.5">
                 {app.relatedPaths.map((r) => (
-                  <li key={r.path} className="truncate pl-4 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                  <li key={r.path} className="truncate pl-4 font-mono text-xs text-ink-2">
                     └─ {contractHome(r.path)} ({formatSize(r.size)})
                   </li>
                 ))}
@@ -41,19 +46,19 @@ export function UninstallConfirm({ apps, onCancel, onConfirm }: UninstallConfirm
         </label>
         <div className="mt-6 flex justify-end gap-3">
           <button
-            className="rounded-md px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-control px-4 py-2 text-sm text-ink hover:bg-hairline"
             onClick={onCancel}
           >
             Cancel
           </button>
           <button
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
+            className="rounded-control bg-danger px-4 py-2 text-sm font-medium text-white hover:brightness-110"
             onClick={() => onConfirm(dryRun)}
           >
             Uninstall
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -9,6 +9,7 @@ import { ActionBar } from '../components/ActionBar'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 import { Tooltip } from '../components/ui/tooltip'
 
 interface RowIconProps {
@@ -186,28 +187,32 @@ export function Uninstaller() {
       ) : null}
 
       {phase === 'done' && done ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="w-[480px] rounded-xl bg-white p-6 shadow-2xl dark:bg-zinc-900">
-            <p className="text-2xl font-semibold text-green-600 dark:text-green-400">
+        <Dialog open>
+          <DialogContent
+            className="w-[480px]"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
+            <DialogTitle className="text-2xl font-semibold text-safe">
               {done.uninstalled} app{done.uninstalled === 1 ? '' : 's'} uninstalled ·{' '}
               {formatSize(done.freedSpace)} freed
-            </p>
+            </DialogTitle>
             {skippedApps.length > 0 ? (
-              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+              <p className="mt-1 text-sm text-moderate">
                 {skippedApps.length} app{skippedApps.length === 1 ? '' : 's'} already removed — skipped:{' '}
                 {skippedApps.join(', ')}
               </p>
             ) : null}
             {done.cancelled ? (
-              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">Cancelled — partial results.</p>
+              <p className="mt-1 text-sm text-moderate">Cancelled — partial results.</p>
             ) : null}
             {done.error ? (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{done.error}</p>
+              <p className="mt-1 text-sm text-danger">{done.error}</p>
             ) : null}
             {done.errors?.length ? (
               <ul className="mt-3 space-y-1">
                 {done.errors.map((e) => (
-                  <li key={e} className="text-xs text-red-600 dark:text-red-400">
+                  <li key={e} className="text-xs text-danger">
                     ✗ {e}
                   </li>
                 ))}
@@ -215,14 +220,14 @@ export function Uninstaller() {
             ) : null}
             <div className="mt-6 flex justify-end">
               <button
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110"
                 onClick={() => store().finish()}
               >
                 Done
               </button>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   )

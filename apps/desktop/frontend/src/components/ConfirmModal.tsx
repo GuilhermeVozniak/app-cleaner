@@ -3,6 +3,7 @@ import { useScanStore } from '../stores/scanStore'
 import { useCleanStore } from '../stores/cleanStore'
 import { useUiStore } from '../stores/uiStore'
 import { formatSize } from '../lib/format'
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { Category, ScanResult } from '../lib/types'
 
 export interface SelectionStats {
@@ -57,9 +58,9 @@ export function defaultBackupEnabled(backupByDefault: boolean, categories: Categ
 }
 
 const safetyColors: Record<Category['safetyLevel'], string> = {
-  safe: 'text-green-600 dark:text-green-400',
-  moderate: 'text-amber-600 dark:text-amber-400',
-  risky: 'text-red-600 dark:text-red-400',
+  safe: 'text-safe',
+  moderate: 'text-moderate',
+  risky: 'text-risky',
 }
 
 export function ConfirmModal() {
@@ -83,10 +84,14 @@ export function ConfirmModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-      <div className="w-[480px] max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl dark:bg-zinc-900">
-        <h2 className="text-lg font-semibold">Confirm clean</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+    <Dialog open>
+      <DialogContent
+        className="w-[480px] max-h-[80vh]"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogTitle className="text-lg font-semibold">Confirm clean</DialogTitle>
+        <p className="mt-1 text-sm text-ink-2">
           {stats.itemCount} item{stats.itemCount === 1 ? '' : 's'} —{' '}
           <span className="font-medium">{formatSize(stats.totalSize)}</span> will be freed
         </p>
@@ -97,7 +102,7 @@ export function ConfirmModal() {
               <span className="font-medium">{c.name}</span>{' '}
               <span className={safetyColors[c.safetyLevel]}>({c.safetyLevel})</span>
               {c.safetyLevel === 'risky' && c.safetyNote ? (
-                <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{c.safetyNote}</p>
+                <p className="mt-0.5 text-xs text-risky">{c.safetyNote}</p>
               ) : null}
             </li>
           ))}
@@ -124,20 +129,20 @@ export function ConfirmModal() {
 
         <div className="mt-6 flex justify-end gap-3">
           <button
-            className="rounded-md px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-control px-4 py-2 text-sm text-ink hover:bg-hairline"
             onClick={() => useCleanStore.getState().reset()}
           >
             Cancel
           </button>
           <button
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+            className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-40"
             disabled={stats.itemCount === 0}
             onClick={onClean}
           >
             Clean
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
