@@ -5,6 +5,11 @@ import { anySelectedRunning, contractHome } from '../lib/uninstallMath'
 import { ProgressOverlay } from '../components/ProgressOverlay'
 import { UninstallConfirm } from '../components/UninstallConfirm'
 import { useUninstallerStore } from '../stores/uninstallerStore'
+import { ActionBar } from '../components/ActionBar'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Checkbox } from '../components/ui/checkbox'
+import { Tooltip } from '../components/ui/tooltip'
 
 interface RowIconProps {
   path: string
@@ -32,7 +37,7 @@ function RowIcon({ path, name, icon, onLoaded }: RowIconProps) {
     )
   }
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-200 text-sm font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
+    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-hairline text-sm font-semibold text-ink-2">
       {name.charAt(0).toUpperCase()}
     </div>
   )
@@ -67,44 +72,50 @@ export function Uninstaller() {
   const firstScan = apps.length === 0 && scanning
   const store = useUninstallerStore.getState
 
+  const uninstallButton = (
+    <Button
+      variant="destructive"
+      disabled={selected.size === 0 || blocked}
+      title={blocked ? 'Quit the app first' : undefined}
+      onClick={() => store().openConfirm()}
+      className="ml-auto"
+    >
+      Uninstall {selected.size} app{selected.size === 1 ? '' : 's'}
+    </Button>
+  )
+
   return (
     <div className="flex h-full flex-col p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Uninstaller</h1>
         <div className="flex items-center gap-3">
           {scanning && apps.length > 0 ? (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">Refreshing…</span>
+            <span className="text-xs text-ink-2">Refreshing…</span>
           ) : lastScanAt ? (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Updated {timeAgo(lastScanAt)}
-            </span>
+            <span className="text-xs text-ink-2">Updated {timeAgo(lastScanAt)}</span>
           ) : null}
-          <button
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            disabled={scanning}
-            onClick={() => void store().refresh()}
-          >
+          <Button variant="glass" size="sm" disabled={scanning} onClick={() => void store().refresh()}>
             Re-check
-          </button>
+          </Button>
         </div>
       </div>
-      {startError ? (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{startError}</p>
-      ) : null}
+      {startError ? <p className="mt-2 text-sm text-danger">{startError}</p> : null}
 
       <div className="mt-4 flex-1 overflow-y-auto">
         {firstScan ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Scanning installed applications…</p>
+          <p className="text-sm text-ink-2">Scanning installed applications…</p>
         ) : (
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <ul className="space-y-1">
             {apps.map((app) => (
-              <li key={app.path} className="py-2">
+              <li
+                key={app.path}
+                className="glass-1 rounded-control px-3 py-2 transition hover:brightness-105"
+              >
                 <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label={`Select ${app.name} (${app.path})`}
                     checked={selected.has(app.path)}
-                    onChange={() => store().toggle(app.path)}
+                    onCheckedChange={() => store().toggle(app.path)}
                   />
                   <RowIcon
                     path={app.path}
@@ -118,27 +129,21 @@ export function Uninstaller() {
                   >
                     {app.name}
                   </button>
-                  {app.running ? (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
-                      Running
-                    </span>
-                  ) : null}
+                  {app.running ? <Badge variant="risky">Running</Badge> : null}
                   {app.relatedPaths.length > 0 ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      +{app.relatedPaths.length} related
-                    </span>
+                    <Badge variant="neutral">+{app.relatedPaths.length} related</Badge>
                   ) : null}
-                  <span className="w-24 text-right text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="nums w-24 text-right text-sm text-ink-2">
                     {formatSize(app.totalSize)}
                   </span>
                 </div>
                 {expanded === app.path ? (
                   <ul className="mt-2 space-y-0.5 pl-8">
-                    <li className="truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                    <li className="truncate font-mono text-xs text-ink-2">
                       {app.path} ({formatSize(app.appSize)})
                     </li>
                     {app.relatedPaths.map((r) => (
-                      <li key={r.path} className="truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                      <li key={r.path} className="truncate font-mono text-xs text-ink-2">
                         {contractHome(r.path)} ({formatSize(r.size)})
                       </li>
                     ))}
@@ -150,16 +155,9 @@ export function Uninstaller() {
         )}
       </div>
 
-      <div className="mt-4 flex justify-end border-t border-zinc-200 pt-4 dark:border-zinc-800">
-        <button
-          className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40"
-          disabled={selected.size === 0 || blocked}
-          title={blocked ? 'Quit the app first' : undefined}
-          onClick={() => store().openConfirm()}
-        >
-          Uninstall {selected.size} app{selected.size === 1 ? '' : 's'}
-        </button>
-      </div>
+      <ActionBar>
+        {blocked ? <Tooltip content="Quit the app first">{uninstallButton}</Tooltip> : uninstallButton}
+      </ActionBar>
 
       {phase === 'confirm' ? (
         <UninstallConfirm

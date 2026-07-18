@@ -164,13 +164,13 @@ describe('<Uninstaller />', () => {
 
     // Selecting the first path only: checkbox state is independent per path.
     fireEvent.click(checkboxes[0])
-    expect((checkboxes[0] as HTMLInputElement).checked).toBe(true)
-    expect((checkboxes[1] as HTMLInputElement).checked).toBe(false)
+    expect(checkboxes[0].getAttribute('aria-checked')).toBe('true')
+    expect(checkboxes[1].getAttribute('aria-checked')).toBe('false')
     expect(screen.getByRole('button', { name: /uninstall 1 app/i })).toBeDefined()
 
     // Selecting the second path too: both are independently checked.
     fireEvent.click(checkboxes[1])
-    expect((checkboxes[1] as HTMLInputElement).checked).toBe(true)
+    expect(checkboxes[1].getAttribute('aria-checked')).toBe('true')
     const btn = screen.getByRole('button', { name: /uninstall 2 apps/i }) as HTMLButtonElement
     fireEvent.click(btn)
 
