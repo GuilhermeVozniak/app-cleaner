@@ -163,3 +163,104 @@ func TestBackupsCleanOldRemovesSessionsPastRetention(t *testing.T) {
 		t.Fatal("new session must be kept")
 	}
 }
+
+// The remaining tests drive the cobra command constructors themselves
+// (newBackupsListCmd/newBackupsRestoreCmd/newBackupsCleanOldCmd), which the
+// tests above never touch — they call runBackupsList/runBackupsRestore/
+// runBackupsCleanOld directly. Only Execute()-ing the built *cobra.Command
+// exercises each RunE closure's own statements (flag wiring, cmd.OutOrStdout
+// plumbing, cmd.InOrStdin/args[0] extraction).
+
+func TestBackupsListCmdExecutePrintsSessions(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "session-a", "f"), "x")
+	swapBackupSeams(t, root, t.TempDir())
+
+	cmd := newBackupsListCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "session-a") {
+		t.Fatalf("out = %q, want the session listed", buf.String())
+	}
+}
+
+func TestBackupsRestoreCmdExecuteWithYesFlagRestores(t *testing.T) {
+	home := t.TempDir()
+	root := t.TempDir()
+	mgr := &backup.Manager{Root: root}
+	src := filepath.Join(home, "Documents", "note.txt")
+	mustWriteFile(t, src, "hello")
+	outcome := mgr.BackupItems(context.Background(), home, []core.CleanableItem{{Path: src, Size: 5, Name: "note.txt"}}, nil)
+	swapBackupSeams(t, root, home)
+
+	cmd := newBackupsRestoreCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{outcome.SessionDir, "--yes"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "Restored: 1") {
+		t.Fatalf("out = %q, want a Restored: 1 line", buf.String())
+	}
+	if _, err := os.Stat(src); err != nil {
+		t.Fatalf("file must be restored to %s: %v", src, err)
+	}
+}
+
+func TestBackupsRestoreCmdRejectsMissingArg(t *testing.T) {
+	cmd := newBackupsRestoreCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Execute() error = nil, want an error for a missing <path> arg (cobra.ExactArgs(1))")
+	}
+}
+
+func TestBackupsCleanOldCmdExecuteRemovesOldSessions(t *testing.T) {
+	root := t.TempDir()
+	home := t.TempDir()
+	oldSession := filepath.Join(root, "old")
+	mustMkdirAll(t, oldSession)
+	oldTime := time.Now().Add(-10 * 24 * time.Hour)
+	if err := os.Chtimes(oldSession, oldTime, oldTime); err != nil {
+		t.Fatal(err)
+	}
+	swapBackupSeams(t, root, home)
+
+	cmd := newBackupsCleanOldCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "Removed 1 old backup session(s).") {
+		t.Fatalf("out = %q", buf.String())
+	}
+	if _, err := os.Stat(oldSession); !os.IsNotExist(err) {
+		t.Fatal("old session must be removed")
+	}
+}
+
+func TestNewBackupsCmdRegistersAllThreeSubcommands(t *testing.T) {
+	c := newBackupsCmd()
+	names := map[string]bool{}
+	for _, sub := range c.Commands() {
+		names[sub.Name()] = true
+	}
+	for _, want := range []string{"list", "restore", "clean-old"} {
+		if !names[want] {
+			t.Fatalf("newBackupsCmd() subcommands = %v, missing %q", names, want)
+		}
+	}
+}
