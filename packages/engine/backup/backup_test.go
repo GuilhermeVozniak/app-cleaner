@@ -3,9 +3,11 @@ package backup
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -449,5 +451,78 @@ func TestRestoreSkipsManifestWithoutCountingIt(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(out.SessionDir, "items.json")); err != nil {
 		t.Fatal("manifest must remain in the session after restore")
+	}
+}
+
+func TestDetailsFromManifest(t *testing.T) {
+	home := t.TempDir()
+	p := filepath.Join(home, "Library", "Caches", "d.log")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("12345678"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(home)
+	out := m.BackupItems(context.Background(), home, []core.CleanableItem{{Path: p, Size: 8, Name: "d.log"}}, nil)
+	d, err := m.Details(out.SessionDir, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.FromManifest || d.Truncated != 0 {
+		t.Fatalf("Details = %+v, want FromManifest=true Truncated=0", d)
+	}
+	want := []Item{{Path: p, Name: "d.log", Size: 8}}
+	if !reflect.DeepEqual(d.Items, want) {
+		t.Fatalf("Items = %+v, want %+v", d.Items, want)
+	}
+}
+
+func TestDetailsFallbackWalkSortedAndCapped(t *testing.T) {
+	home := t.TempDir()
+	m := NewManager(home)
+	// Legacy session: build by hand, NO manifest.
+	sd := filepath.Join(m.Root, "2026-01-01T00-00-00Z")
+	for i := 0; i < 205; i++ {
+		p := filepath.Join(sd, "HOME", "Library", "Caches", fmt.Sprintf("f%03d.log", i))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("xy"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d, err := m.Details(sd, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.FromManifest {
+		t.Fatal("legacy session must not report FromManifest")
+	}
+	if len(d.Items) != 200 || d.Truncated != 5 {
+		t.Fatalf("len=%d Truncated=%d, want 200/5", len(d.Items), d.Truncated)
+	}
+	first := d.Items[0]
+	if first.Path != filepath.Join(home, "Library", "Caches", "f000.log") || first.Name != "f000.log" || first.Size != 2 {
+		t.Fatalf("first item = %+v, want reconstructed ~ path, base name, on-disk size", first)
+	}
+	if !sort.SliceIsSorted(d.Items, func(i, j int) bool { return d.Items[i].Path < d.Items[j].Path }) {
+		t.Fatal("fallback items must be sorted by path")
+	}
+}
+
+func TestDetailsContainmentAndEmptySessions(t *testing.T) {
+	home := t.TempDir()
+	m := NewManager(home)
+	if _, err := m.Details(filepath.Join(t.TempDir(), "elsewhere"), home); err == nil {
+		t.Fatal("session outside Root must be rejected")
+	}
+	// Session dir that does not exist under Root: no error, empty non-nil Items.
+	d, err := m.Details(filepath.Join(m.Root, "missing-session"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Items == nil || len(d.Items) != 0 || d.FromManifest || d.Truncated != 0 {
+		t.Fatalf("Details = %+v, want empty non-nil Items and zero flags", d)
 	}
 }

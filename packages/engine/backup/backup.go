@@ -286,3 +286,61 @@ func (m *Manager) Delete(sessionDir string) error {
 	}
 	return os.RemoveAll(sd)
 }
+
+// detailsCap bounds the legacy fallback listing; the manifest path is uncapped
+// (it holds items, not files, and is naturally small).
+const detailsCap = 200
+
+// Details describes a session's contents for display.
+type Details struct {
+	Items        []Item `json:"items"`
+	FromManifest bool   `json:"fromManifest"`
+	Truncated    int    `json:"truncated"`
+}
+
+// Details returns what a session contains: the manifest's items when present,
+// otherwise a sorted, capped walk of the session's HOME/ files with original
+// paths reconstructed under home. Items is never nil (JSON bridge: []).
+func (m *Manager) Details(sessionDir, home string) (Details, error) {
+	d := Details{Items: []Item{}}
+	sd, err := m.resolveSession(sessionDir)
+	if err != nil {
+		return d, err
+	}
+	if data, rerr := os.ReadFile(filepath.Join(sd, manifestName)); rerr == nil {
+		var items []Item
+		if jerr := json.Unmarshal(data, &items); jerr == nil && items != nil {
+			d.Items = items
+			d.FromManifest = true
+			return d, nil
+		}
+		// Corrupt manifest: fall through to the walk.
+	}
+	home = filepath.Clean(home)
+	root := filepath.Join(sd, "HOME")
+	var files []Item
+	_ = filepath.WalkDir(root, func(path string, de fs.DirEntry, werr error) error {
+		if werr != nil || de.IsDir() {
+			return nil // unreadable entries tolerated, like List()
+		}
+		rel, rerr := filepath.Rel(root, path)
+		if rerr != nil {
+			return nil
+		}
+		var size int64
+		if st, serr := de.Info(); serr == nil {
+			size = st.Size()
+		}
+		files = append(files, Item{Path: filepath.Join(home, rel), Name: de.Name(), Size: size})
+		return nil
+	})
+	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+	if len(files) > detailsCap {
+		d.Truncated = len(files) - detailsCap
+		files = files[:detailsCap]
+	}
+	if files != nil {
+		d.Items = files
+	}
+	return d, nil
+}
