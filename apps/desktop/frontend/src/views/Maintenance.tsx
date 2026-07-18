@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { RunMaintenance, StartTMSnapshotsClear, CancelMaintenance } from '../../wailsjs/go/main/App'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
 import type { MaintenanceResult } from '../lib/types'
 
 interface TMDate {
@@ -9,39 +12,32 @@ interface TMDate {
 }
 
 function AdminBadge() {
-  return (
-    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-      Requires administrator
-    </span>
-  )
+  return <Badge variant="moderate">Requires administrator</Badge>
 }
 
 // Failed results that required admin get a "Retry with administrator" CTA so the
 // user can re-trigger the task (and its osascript admin prompt) directly.
 function ResultLine({ result, onRetry }: { result: MaintenanceResult; onRetry?: () => void }) {
   if (result.success) {
-    return <p className="mt-2 text-sm text-green-600 dark:text-green-400">✓ {result.message}</p>
+    return <p className="mt-2 text-sm text-safe">✓ {result.message}</p>
   }
   return (
     <div className="mt-2">
-      <p className="text-sm text-red-600 dark:text-red-400">
+      <p className="text-sm text-danger">
         ✗ {result.message}
         {result.error ? ` — ${result.error}` : ''}
       </p>
       {result.requiresAdmin && onRetry ? (
-        <button
-          className="mt-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500"
-          onClick={onRetry}
-        >
+        <Button type="button" size="sm" className="mt-1.5 bg-moderate" onClick={onRetry}>
           Retry with administrator
-        </button>
+        </Button>
       ) : null}
     </div>
   )
 }
 
 function Spinner() {
-  return <p className="mt-2 animate-pulse text-sm text-zinc-500 dark:text-zinc-400">Running…</p>
+  return <p className="mt-2 animate-pulse text-sm text-ink-2">Running…</p>
 }
 
 export function Maintenance() {
@@ -91,61 +87,54 @@ export function Maintenance() {
     }
   }
 
-  const card = 'rounded-xl border border-zinc-200 p-5 dark:border-zinc-800'
-  const runBtn =
-    'mt-3 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40'
-
   return (
     <div className="space-y-4 p-6">
-      <h1 className="text-xl font-semibold">Maintenance</h1>
+      <h1 className="text-xl font-semibold text-ink">Maintenance</h1>
 
-      <div className={card}>
+      <Card className="p-5">
         <div className="flex items-center gap-2">
-          <h2 className="font-medium">Flush DNS Cache</h2>
+          <h2 className="font-medium text-ink">Flush DNS Cache</h2>
           <AdminBadge />
         </div>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-ink-2">
           Clears the macOS DNS resolver cache (dscacheutil + mDNSResponder). Fixes stale DNS lookups.
         </p>
-        <button className={runBtn} disabled={dns.running} onClick={() => void run('dns')}>
+        <Button type="button" className="mt-3" disabled={dns.running} onClick={() => void run('dns')}>
           Run
-        </button>
+        </Button>
         {dns.running ? <Spinner /> : null}
         {dns.result ? <ResultLine result={dns.result} onRetry={() => void run('dns')} /> : null}
-      </div>
+      </Card>
 
-      <div className={card}>
-        <h2 className="font-medium">Free Purgeable Space</h2>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+      <Card className="p-5">
+        <h2 className="font-medium text-ink">Free Purgeable Space</h2>
+        <p className="mt-1 text-sm text-ink-2">
           Asks macOS to release purgeable disk space (/usr/sbin/purge). Usually runs without
           privileges — may prompt for admin if the system refuses.
         </p>
-        <button className={runBtn} disabled={purge.running} onClick={() => void run('purge')}>
+        <Button type="button" className="mt-3" disabled={purge.running} onClick={() => void run('purge')}>
           Run
-        </button>
+        </Button>
         {purge.running ? <Spinner /> : null}
         {purge.result ? <ResultLine result={purge.result} onRetry={() => void run('purge')} /> : null}
-      </div>
+      </Card>
 
-      <div className={card}>
+      <Card className="p-5">
         <div className="flex items-center gap-2">
-          <h2 className="font-medium">Clear Time Machine Snapshots</h2>
+          <h2 className="font-medium text-ink">Clear Time Machine Snapshots</h2>
           <AdminBadge />
         </div>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-ink-2">
           Deletes local Time Machine snapshots (tmutil). One admin prompt deletes all snapshots.
         </p>
-        <div className="flex items-center gap-3">
-          <button className={runBtn} disabled={tm.running} onClick={() => void runTM()}>
+        <div className="mt-3 flex items-center gap-3">
+          <Button type="button" disabled={tm.running} onClick={() => void runTM()}>
             Run
-          </button>
+          </Button>
           {tm.running ? (
-            <button
-              className="mt-3 rounded-md px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              onClick={() => void CancelMaintenance()}
-            >
+            <Button type="button" variant="ghost" onClick={() => void CancelMaintenance()}>
               Cancel
-            </button>
+            </Button>
           ) : null}
         </div>
         {tm.running ? <Spinner /> : null}
@@ -154,16 +143,16 @@ export function Maintenance() {
             {tm.dates.map((d) => (
               <li key={d.date} className="font-mono text-xs">
                 {d.error ? (
-                  <span className="text-red-600 dark:text-red-400">✗ {d.date} — {d.error}</span>
+                  <span className="text-danger">✗ {d.date} — {d.error}</span>
                 ) : (
-                  <span className="text-green-600 dark:text-green-400">✓ {d.date}</span>
+                  <span className="text-safe">✓ {d.date}</span>
                 )}
               </li>
             ))}
           </ul>
         ) : null}
         {tm.result ? <ResultLine result={tm.result} onRetry={() => void runTM()} /> : null}
-      </div>
+      </Card>
     </div>
   )
 }
