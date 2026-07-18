@@ -24,6 +24,8 @@ export function DeleteBackup(arg1:string):Promise<void>;
 
 export function GetAppIcon(arg1:string):Promise<string>;
 
+export function GetBackupDetails(arg1:string):Promise<backup.Details>;
+
 export function GetCategories():Promise<Array<core.Category>>;
 
 export function GetConfig():Promise<config.Config>;

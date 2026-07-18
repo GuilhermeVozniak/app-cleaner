@@ -34,6 +34,10 @@ export function GetAppIcon(arg1) {
   return window['go']['main']['App']['GetAppIcon'](arg1);
 }
 
+export function GetBackupDetails(arg1) {
+  return window['go']['main']['App']['GetBackupDetails'](arg1);
+}
+
 export function GetCategories() {
   return window['go']['main']['App']['GetCategories']();
 }

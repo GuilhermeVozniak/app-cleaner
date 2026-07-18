@@ -655,6 +655,17 @@ func (a *App) RestoreBackup(path string) backup.RestoreResult {
 	return a.backupMgr.Restore(path, a.home)
 }
 
+// GetBackupDetails returns a backup session's contents for the Backups view.
+// Containment errors yield an empty (non-nil) list — the UI cannot produce an
+// invalid path, and the view's empty state covers the degenerate case.
+func (a *App) GetBackupDetails(path string) backup.Details {
+	d, err := a.backupMgr.Details(path, a.home)
+	if err != nil {
+		return backup.Details{Items: []backup.Item{}}
+	}
+	return d
+}
+
 func (a *App) DeleteBackup(path string) error {
 	return a.backupMgr.Delete(path)
 }

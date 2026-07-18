@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/backup"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/maintenance"
 )
@@ -253,3 +256,26 @@ var (
 	_ maintenance.Runner   = (*fakeMaintRunner)(nil)
 	_ maintenance.Elevator = (*fakeMaintElevator)(nil)
 )
+
+func TestGetBackupDetailsHeadless(t *testing.T) {
+	home := t.TempDir()
+	a := &App{home: home, backupMgr: backup.NewManager(home)}
+	// Invalid (outside Root) -> empty, NON-NIL items, no panic.
+	d := a.GetBackupDetails(filepath.Join(t.TempDir(), "nope"))
+	if d.Items == nil || len(d.Items) != 0 {
+		t.Fatalf("invalid path: Details = %+v, want empty non-nil Items", d)
+	}
+	// Valid session with manifest -> items pass through.
+	p := filepath.Join(home, "Library", "Caches", "z.log")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("abc"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := a.backupMgr.BackupItems(context.Background(), home, []core.CleanableItem{{Path: p, Size: 3, Name: "z.log"}}, nil)
+	d = a.GetBackupDetails(out.SessionDir)
+	if !d.FromManifest || len(d.Items) != 1 || d.Items[0].Name != "z.log" {
+		t.Fatalf("Details = %+v, want 1 manifest item z.log", d)
+	}
+}
