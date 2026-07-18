@@ -46,9 +46,9 @@ export default function Sidebar() {
           type="button"
           variant="ghost"
           onClick={() => setView('first-run')}
-          className="mx-2 mt-auto mb-3 h-auto justify-start gap-2 px-3 py-1.5 text-left text-xs text-amber-600 hover:bg-hairline dark:text-amber-400"
+          className="mx-2 mt-auto mb-3 h-auto justify-start gap-2 px-3 py-1.5 text-left text-xs text-moderate hover:bg-hairline"
         >
-          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-moderate" />
           <span className="flex-1">Limited disk access</span>
           <ShieldAlert size={14} />
         </Button>
