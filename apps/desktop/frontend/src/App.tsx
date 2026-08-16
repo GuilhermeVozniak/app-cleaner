@@ -3,24 +3,18 @@ import { CheckFDA } from '../wailsjs/go/main/App';
 import { Backdrop } from './components/Backdrop';
 import Sidebar from './components/Sidebar';
 import FirstRun from './views/FirstRun';
+import Dashboard from './views/Dashboard';
 import SmartScan from './views/SmartScan';
 import CategoryDetail from './views/CategoryDetail';
 import Uninstaller from './views/Uninstaller';
 import Maintenance from './views/Maintenance';
 import Backups from './views/Backups';
 import Settings from './views/Settings';
+import MyTools from './views/MyTools';
+import SpaceLens from './views/SpaceLens';
+import LoginItems from './views/LoginItems';
 import { CleanFlow } from './components/CleanFlow';
 import { useUiStore } from './stores/uiStore';
-
-// Placeholder panes — swapped for real views by later tasks:
-// SmartScan (Task 23), CategoryDetail (Task 24), Uninstaller/Maintenance/Backups/Settings (later tasks).
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="flex h-full items-center justify-center text-ink-2">
-      {title}
-    </div>
-  );
-}
 
 function App() {
   const view = useUiStore((s) => s.view);
@@ -58,12 +52,16 @@ function App() {
       />
       <Sidebar />
       <main className="relative z-10 min-w-0 flex-1 overflow-y-auto">
+        {view === 'dashboard' && <Dashboard />}
         {view === 'smart-scan' && <SmartScan />}
         {view === 'category' && <CategoryDetail />}
         {view === 'uninstaller' && <Uninstaller />}
         {view === 'maintenance' && <Maintenance />}
         {view === 'backups' && <Backups />}
         {view === 'settings' && <Settings />}
+        {view === 'my-tools' && <MyTools />}
+        {view === 'space-lens' && <SpaceLens />}
+        {view === 'login-items' && <LoginItems />}
       </main>
       <CleanFlow />
     </div>

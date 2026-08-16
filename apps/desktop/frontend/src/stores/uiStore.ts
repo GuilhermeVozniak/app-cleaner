@@ -3,13 +3,17 @@ import { CheckFDA, GetConfig, SaveConfig } from '../../wailsjs/go/main/App';
 import type { Config } from '../lib/types';
 
 export type View =
+  | 'dashboard'
   | 'smart-scan'
   | 'category'
   | 'uninstaller'
   | 'maintenance'
   | 'backups'
   | 'settings'
-  | 'first-run';
+  | 'first-run'
+  | 'my-tools'
+  | 'space-lens'
+  | 'login-items';
 
 export interface UiState {
   view: View;
@@ -23,7 +27,7 @@ export interface UiState {
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  view: 'smart-scan',
+  view: 'dashboard',
   activeCategoryId: undefined,
   fda: null,
   config: undefined,

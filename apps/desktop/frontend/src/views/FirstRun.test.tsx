@@ -35,13 +35,13 @@ describe('<FirstRun />', () => {
     expect(OpenFDASettingsMock).toHaveBeenCalledTimes(1)
   })
 
-  it('"Re-check" calls CheckFDA; a grant switches the view to smart-scan', async () => {
+  it('"Re-check" calls CheckFDA; a grant switches the view to the dashboard', async () => {
     CheckFDAMock.mockResolvedValueOnce(true)
     render(<FirstRun />)
     fireEvent.click(screen.getByText('Re-check'))
     expect(CheckFDAMock).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(useUiStore.getState().fda).toBe(true))
-    expect(useUiStore.getState().view).toBe('smart-scan')
+    expect(useUiStore.getState().view).toBe('dashboard')
   })
 
   it('"Re-check" leaves the view on first-run when still denied', async () => {
@@ -52,10 +52,10 @@ describe('<FirstRun />', () => {
     expect(useUiStore.getState().view).toBe('first-run')
   })
 
-  it('"Continue without" switches to smart-scan directly', () => {
+  it('"Continue without" switches to the dashboard directly', () => {
     render(<FirstRun />)
     fireEvent.click(screen.getByText('Continue without'))
-    expect(useUiStore.getState().view).toBe('smart-scan')
+    expect(useUiStore.getState().view).toBe('dashboard')
   })
 
   it('re-checks FDA on window focus', async () => {

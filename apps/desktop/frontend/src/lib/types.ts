@@ -187,3 +187,36 @@ export interface MaintenanceProgressEvent {
 export interface MaintenanceDoneEvent {
   result: MaintenanceResult;
 }
+
+export interface DiskUsage {
+  total: number;
+  free: number;
+  used: number;
+}
+
+export interface ActivityStats {
+  totalCleanedBytes: number;
+  totalCleanedItems: number;
+  cleanRuns: number;
+  scanRuns: number;
+  appsUninstalled: number;
+  lastCleanAt: string; // RFC3339, '' = never
+}
+
+export interface SpaceLensNode {
+  name: string;
+  path: string;
+  size: number;
+  isDir: boolean;
+  children?: SpaceLensNode[];
+  truncated?: number;
+}
+
+export interface LoginItem {
+  label: string;
+  path: string;
+  program: string;
+  kind: 'user-agent' | 'global-agent' | 'daemon';
+  runAtLoad: boolean;
+  programMissing: boolean;
+}

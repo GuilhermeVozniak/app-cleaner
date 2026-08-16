@@ -9,6 +9,8 @@ export type Selection = Set<string> | 'all';
 export interface ScanState {
   status: 'idle' | 'scanning' | 'done';
   progress: { completed: number; total: number };
+  /** Category ids in the current/last scan ([] = all categories). */
+  scanIds: string[];
   categories: Category[];
   results: Record<string, ScanResult>;
   itemCounts: Record<string, number>;
@@ -27,6 +29,7 @@ export interface ScanState {
 const initialState = {
   status: 'idle' as const,
   progress: { completed: 0, total: 0 },
+  scanIds: [] as string[],
   categories: [] as Category[],
   results: {} as Record<string, ScanResult>,
   itemCounts: {} as Record<string, number>,
@@ -109,6 +112,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
     set({
       status: 'scanning',
       progress: { completed: 0, total },
+      scanIds: ids,
       results: {},
       itemCounts: {},
       selected: {},

@@ -1,56 +1,5 @@
 export namespace backup {
 	
-	export class Info {
-	    path: string;
-	    // Go type: time
-	    date: any;
-	    size: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new Info(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.path = source["path"];
-	        this.date = this.convertValues(source["date"], null);
-	        this.size = source["size"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class RestoreResult {
-	    restored: number;
-	    failed: number;
-	    errors: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new RestoreResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.restored = source["restored"];
-	        this.failed = source["failed"];
-	        this.errors = source["errors"];
-	    }
-	}
 	export class Item {
 	    path: string;
 	    name: string;
@@ -100,6 +49,58 @@ export namespace backup {
 		    }
 		    return a;
 		}
+	}
+	export class Info {
+	    path: string;
+	    // Go type: time
+	    date: any;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.date = this.convertValues(source["date"], null);
+	        this.size = source["size"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class RestoreResult {
+	    restored: number;
+	    failed: number;
+	    errors: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RestoreResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.restored = source["restored"];
+	        this.failed = source["failed"];
+	        this.errors = source["errors"];
+	    }
 	}
 
 }
@@ -304,8 +305,57 @@ export namespace grouping {
 
 }
 
+export namespace loginitems {
+	
+	export class Item {
+	    label: string;
+	    path: string;
+	    program: string;
+	    kind: string;
+	    runAtLoad: boolean;
+	    programMissing: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Item(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.label = source["label"];
+	        this.path = source["path"];
+	        this.program = source["program"];
+	        this.kind = source["kind"];
+	        this.runAtLoad = source["runAtLoad"];
+	        this.programMissing = source["programMissing"];
+	    }
+	}
+
+}
+
 export namespace main {
 	
+	export class ActivityStats {
+	    totalCleanedBytes: number;
+	    totalCleanedItems: number;
+	    cleanRuns: number;
+	    scanRuns: number;
+	    appsUninstalled: number;
+	    lastCleanAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ActivityStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.totalCleanedBytes = source["totalCleanedBytes"];
+	        this.totalCleanedItems = source["totalCleanedItems"];
+	        this.cleanRuns = source["cleanRuns"];
+	        this.scanRuns = source["scanRuns"];
+	        this.appsUninstalled = source["appsUninstalled"];
+	        this.lastCleanAt = source["lastCleanAt"];
+	    }
+	}
 	export class CleanOptions {
 	    dryRun: boolean;
 	    backup: boolean;
@@ -318,6 +368,22 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.dryRun = source["dryRun"];
 	        this.backup = source["backup"];
+	    }
+	}
+	export class DiskUsage {
+	    total: number;
+	    free: number;
+	    used: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DiskUsage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.free = source["free"];
+	        this.used = source["used"];
 	    }
 	}
 
@@ -342,6 +408,51 @@ export namespace maintenance {
 	        this.error = source["error"];
 	        this.requiresAdmin = source["requiresAdmin"];
 	    }
+	}
+
+}
+
+export namespace spacelens {
+	
+	export class Node {
+	    name: string;
+	    path: string;
+	    size: number;
+	    isDir: boolean;
+	    children?: Node[];
+	    truncated?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Node(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.size = source["size"];
+	        this.isDir = source["isDir"];
+	        this.children = this.convertValues(source["children"], Node);
+	        this.truncated = source["truncated"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }
