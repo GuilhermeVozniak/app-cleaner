@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { CheckFDA, GetConfig, SaveConfig } from '../../wailsjs/go/main/App';
-import type { Config } from '../lib/types';
+import { CheckFDA, CheckForUpdate, GetConfig, SaveConfig } from '../../wailsjs/go/main/App';
+import type { Config, UpdateInfo } from '../lib/types';
 
 export type View =
   | 'dashboard'
@@ -20,10 +20,13 @@ export interface UiState {
   activeCategoryId?: string;
   fda: boolean | null;
   config?: Config;
+  /** undefined = not checked yet; error-only info = check failed quietly. */
+  update?: UpdateInfo;
   setView: (view: View, activeCategoryId?: string) => void;
   loadConfig: () => Promise<void>;
   saveConfig: (c: Config) => Promise<void>;
   refreshFda: () => Promise<boolean | null>;
+  checkUpdate: () => Promise<UpdateInfo | null>;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -53,5 +56,13 @@ export const useUiStore = create<UiState>((set) => ({
     const fda = (await CheckFDA()) as boolean | null;
     set({ fda });
     return fda;
+  },
+
+  checkUpdate: async () => {
+    // Failures land in info.error backend-side; a rejected promise (or the
+    // test harness's null stub) leaves `update` untouched.
+    const info = (await CheckForUpdate().catch(() => null)) as UpdateInfo | null;
+    if (info) set({ update: info });
+    return info;
   },
 }));

@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #f5f6f8;
+  /* CleanMyMac-X-leaning palette: lavender-tinted light shell, deep indigo
+     dark shell, violet accent. Module hues stay vivid in both schemes. */
+  --color-canvas: #eef0f7;
   --color-surface-solid: #ffffff;
-  --color-aurora-sky: #7cb8ff;
+  --color-aurora-sky: #86a8ff;
   --color-aurora-mint: #7fe0c3;
-  --color-aurora-violet: #c6b3ff;
-  --color-glass-1: rgb(255 255 255 / 0.55);
-  --color-glass-2: rgb(255 255 255 / 0.68);
-  --color-ink: #1d1d1f;
-  --color-ink-2: #6e6e73;
-  --color-accent: #0a84ff;
+  --color-aurora-violet: #b9a3ff;
+  --color-glass-1: rgb(255 255 255 / 0.6);
+  --color-glass-2: rgb(250 250 255 / 0.72);
+  --color-ink: #1c1d26;
+  --color-ink-2: #6b6e80;
+  --color-accent: #7a5af8;
   --color-danger: #ff453a;
   --color-safe: #30d158;
   --color-moderate: #ff9f0a;
   --color-risky: #ff453a;
-  --color-hairline: rgb(0 0 0 / 0.08);
+  --color-hairline: rgb(28 29 48 / 0.08);
   --radius-shell: 20px;
   --radius-card: 16px;
   --radius-control: 10px;
@@ -26,9 +28,9 @@
   --aurora-alpha: 0.35;
   /* Per-module hues (CleanMyMac-style module identity). Consumed through the
      --module indirection var set inline per screen/tile. */
-  --color-module-care: #a06bfa;
-  --color-module-cleanup: #30d158;
-  --color-module-apps: #0a84ff;
+  --color-module-care: #8f6bff;
+  --color-module-cleanup: #34d073;
+  --color-module-apps: #3d8bff;
   --color-module-perf: #ff9f0a;
   --color-module-clutter: #40c8e0;
   --color-module-lens: #bf5af2;
@@ -37,17 +39,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-canvas: #0b0e14;
-    --color-surface-solid: #171a22;
-    --color-glass-1: rgb(28 33 44 / 0.45);
-    --color-glass-2: rgb(33 38 50 / 0.6);
-    --color-ink: #f5f5f7;
-    --color-ink-2: #98989d;
-    --color-hairline: rgb(255 255 255 / 0.10);
+    /* Deep indigo charcoal (CMM-X dark): content cards sit lighter than the
+       canvas, the sidebar (glass-2) sits DARKER — a distinct near-black rail. */
+    --color-canvas: #14151f;
+    --color-surface-solid: #1d1f2b;
+    --color-glass-1: rgb(35 38 52 / 0.55);
+    --color-glass-2: rgb(19 20 29 / 0.78);
+    --color-ink: #f2f3f8;
+    --color-ink-2: #9a9db2;
+    --color-accent: #8b74ff;
+    --color-hairline: rgb(255 255 255 / 0.08);
     --glass-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
-    --glass-shadow-2: 0 16px 40px rgb(0 0 0 / 0.45);
-    --glass-ring: rgb(255 255 255 / 0.14);
-    --aurora-alpha: 0.3;
+    --glass-shadow-2: 0 16px 40px rgb(0 0 0 / 0.5);
+    --glass-ring: rgb(255 255 255 / 0.1);
+    --aurora-alpha: 0.22;
   }
 }
 

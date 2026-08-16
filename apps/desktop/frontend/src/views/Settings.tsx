@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { GetVersion, OpenReleasePage } from '../../wailsjs/go/main/App'
 import { useUiStore } from '../stores/uiStore'
 import { toForm, fromForm } from '../lib/settings'
 import type { SettingsForm } from '../lib/settings'
@@ -6,6 +7,56 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
+
+/** Software-update card: current version, latest check result, release link. */
+function UpdateCard() {
+  const update = useUiStore((s) => s.update)
+  const [version, setVersion] = useState('')
+  const [checking, setChecking] = useState(false)
+
+  useEffect(() => {
+    GetVersion()
+      .then((v) => setVersion(v ?? ''))
+      .catch(() => setVersion(''))
+  }, [])
+
+  const check = async () => {
+    setChecking(true)
+    await useUiStore.getState().checkUpdate()
+    setChecking(false)
+  }
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="font-medium text-ink">Software Update</h2>
+          <p className="mt-1 text-sm text-ink-2">
+            Current version: {version || '…'}
+            {update?.available ? (
+              <span className="ml-2 text-safe">New version {update.latest} available</span>
+            ) : update && !update.error ? (
+              <span className="ml-2">— up to date</span>
+            ) : null}
+          </p>
+          {update?.error ? (
+            <p className="mt-1 text-xs text-moderate">Could not check for updates: {update.error}</p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {update?.available ? (
+            <Button type="button" variant="primary" onClick={() => void OpenReleasePage()}>
+              Get update
+            </Button>
+          ) : null}
+          <Button type="button" variant="glass" disabled={checking} onClick={() => void check()}>
+            {checking ? 'Checking…' : 'Check for updates'}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
 
 export function Settings() {
   const config = useUiStore((s) => s.config)
@@ -43,6 +94,8 @@ export function Settings() {
   return (
     <div className="max-w-2xl p-6">
       <h1 className="text-xl font-semibold text-ink">Settings</h1>
+
+      <UpdateCard />
 
       <Card className="mt-4 divide-y divide-hairline px-5 py-1">
         <label className={row}>

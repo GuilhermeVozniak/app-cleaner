@@ -21,6 +21,7 @@ function App() {
 
   useEffect(() => {
     void useUiStore.getState().loadConfig();
+    void useUiStore.getState().checkUpdate();
     // First-run gate (spec §12): shown unless FDA is confirmed granted —
     // false (denied) AND null (unknown) both land on the permission screen.
     // "Continue without" on that screen still lets the user proceed.

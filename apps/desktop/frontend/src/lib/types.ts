@@ -212,6 +212,14 @@ export interface SpaceLensNode {
   truncated?: number;
 }
 
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  available: boolean;
+  url: string;
+  error?: string;
+}
+
 export interface LoginItem {
   label: string;
   path: string;

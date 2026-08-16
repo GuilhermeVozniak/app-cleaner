@@ -22,6 +22,10 @@ export function CheckFDA() {
   return window['go']['main']['App']['CheckFDA']();
 }
 
+export function CheckForUpdate() {
+  return window['go']['main']['App']['CheckForUpdate']();
+}
+
 export function CleanOldBackups() {
   return window['go']['main']['App']['CleanOldBackups']();
 }
@@ -66,6 +70,10 @@ export function GetScanResult(arg1) {
   return window['go']['main']['App']['GetScanResult'](arg1);
 }
 
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
+}
+
 export function GroupItems(arg1, arg2) {
   return window['go']['main']['App']['GroupItems'](arg1, arg2);
 }
@@ -88,6 +96,10 @@ export function ListLoginItems() {
 
 export function OpenFDASettings() {
   return window['go']['main']['App']['OpenFDASettings']();
+}
+
+export function OpenReleasePage() {
+  return window['go']['main']['App']['OpenReleasePage']();
 }
 
 export function RestoreBackup(arg1) {
