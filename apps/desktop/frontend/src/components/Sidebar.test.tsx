@@ -4,7 +4,13 @@ import Sidebar from './Sidebar'
 import { useUiStore } from '../stores/uiStore'
 
 beforeEach(() => {
-  useUiStore.setState({ view: 'dashboard', activeCategoryId: undefined, fda: null, config: undefined })
+  useUiStore.setState({
+    view: 'dashboard',
+    activeCategoryId: undefined,
+    fda: null,
+    config: undefined,
+    update: undefined,
+  })
 })
 
 describe('<Sidebar /> (icon rail)', () => {
@@ -65,5 +71,25 @@ describe('<Sidebar /> (icon rail)', () => {
     useUiStore.setState({ fda: null })
     rerender(<Sidebar />)
     expect(screen.queryByRole('button', { name: 'Limited disk access' })).toBeNull()
+  })
+
+  it('shows an Update tile only when an update is available, routing to Settings', () => {
+    const { rerender } = render(<Sidebar />)
+    expect(screen.queryByRole('button', { name: /Update available/ })).toBeNull()
+
+    useUiStore.setState({
+      update: { current: '1.4.0', latest: '2.0.0', available: true, url: 'https://x' },
+    })
+    rerender(<Sidebar />)
+    fireEvent.click(screen.getByRole('button', { name: 'Update available: version 2.0.0' }))
+    expect(useUiStore.getState().view).toBe('settings')
+  })
+
+  it('keeps the Update tile hidden when the check reports up-to-date', () => {
+    useUiStore.setState({
+      update: { current: '1.4.0', latest: '1.4.0', available: false, url: 'https://x' },
+    })
+    render(<Sidebar />)
+    expect(screen.queryByRole('button', { name: /Update available/ })).toBeNull()
   })
 })

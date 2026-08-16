@@ -20,6 +20,8 @@ export function CancelScan():Promise<void>;
 
 export function CheckFDA():Promise<any>;
 
+export function CheckForUpdate():Promise<main.UpdateInfo>;
+
 export function CleanOldBackups():Promise<number>;
 
 export function CopyPath(arg1:string):Promise<void>;
@@ -42,6 +44,8 @@ export function GetHome():Promise<string>;
 
 export function GetScanResult(arg1:string):Promise<core.ScanResult>;
 
+export function GetVersion():Promise<string>;
+
 export function GroupItems(arg1:string,arg2:Record<string, number>):Promise<Array<grouping.DisplayRow>>;
 
 export function IsAppRunning(arg1:string):Promise<boolean>;
@@ -53,6 +57,8 @@ export function ListBackups():Promise<Array<backup.Info>>;
 export function ListLoginItems():Promise<Array<loginitems.Item>>;
 
 export function OpenFDASettings():Promise<void>;
+
+export function OpenReleasePage():Promise<void>;
 
 export function RestoreBackup(arg1:string):Promise<backup.RestoreResult>;
 

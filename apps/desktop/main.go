@@ -38,7 +38,7 @@ func main() {
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   "App Cleaner",
-				Message: "Version 1.0.0\n© 2026 Guilherme Vozniak — MIT\n\nA macOS cleaning app — Go/Wails port of mac-cleaner-cli.",
+				Message: "Version " + appVersion + "\n© 2026 Guilherme Vozniak — MIT\n\nA macOS cleaning app — Go/Wails port of mac-cleaner-cli.",
 				Icon:    iconBytes,
 			},
 		},

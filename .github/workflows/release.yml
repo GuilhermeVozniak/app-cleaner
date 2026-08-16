@@ -50,7 +50,11 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
       - run: bun install --frozen-lockfile
       - name: Build desktop app (universal binary)
-        run: cd apps/desktop && wails build -platform darwin/universal
+        # -ldflags stamps main.appVersion so the in-app update check compares
+        # against a real version instead of "dev".
+        run: |
+          cd apps/desktop
+          wails build -platform darwin/universal -ldflags "-X main.appVersion=${GITHUB_REF_NAME#v}"
       # Signing/notarization steps are skipped when the signing secrets are
       # absent (e.g. forks), so unsigned releases still build.
       - name: Import signing certificate

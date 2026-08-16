@@ -5,9 +5,12 @@ vi.mock('../../wailsjs/go/main/App', () => ({
   GetConfig: vi.fn(),
   SaveConfig: vi.fn(),
   CheckFDA: vi.fn().mockResolvedValue(null),
+  CheckForUpdate: vi.fn().mockResolvedValue(null),
+  GetVersion: vi.fn().mockResolvedValue('1.4.0'),
+  OpenReleasePage: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { GetConfig, SaveConfig } from '../../wailsjs/go/main/App'
+import { GetConfig, SaveConfig, OpenReleasePage } from '../../wailsjs/go/main/App'
 import { Settings } from './Settings'
 import { useUiStore } from '../stores/uiStore'
 import type { Config } from '../lib/types'
@@ -27,7 +30,7 @@ const CONFIG: Config = {
 }
 
 beforeEach(() => {
-  useUiStore.setState({ config: undefined })
+  useUiStore.setState({ config: undefined, update: undefined })
   GetConfigMock.mockReset()
   SaveConfigMock.mockReset()
 })
@@ -108,6 +111,38 @@ describe('<Settings />', () => {
     const projectsInput = screen.getByLabelText(/Extra project scan roots/) as HTMLTextAreaElement
     fireEvent.change(projectsInput, { target: { value: '/c' } })
     expect(projectsInput.value).toBe('/c')
+  })
+
+  it('shows the current version and an up-to-date note in the update card', async () => {
+    GetConfigMock.mockResolvedValue(CONFIG)
+    useUiStore.setState({
+      update: { current: '1.4.0', latest: '1.4.0', available: false, url: 'https://x' },
+    })
+    render(<Settings />)
+    expect(await screen.findByText(/Current version: 1\.4\.0/)).toBeInTheDocument()
+    expect(screen.getByText(/up to date/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Get update' })).toBeNull()
+  })
+
+  it('offers Get update when a newer version is available and opens the release page', async () => {
+    GetConfigMock.mockResolvedValue(CONFIG)
+    useUiStore.setState({
+      update: { current: '1.4.0', latest: '2.0.0', available: true, url: 'https://x' },
+    })
+    render(<Settings />)
+    expect(await screen.findByText(/New version 2\.0\.0 available/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Get update' }))
+    expect(OpenReleasePage).toHaveBeenCalledTimes(1)
+  })
+
+  it('surfaces a failed update check without claiming up-to-date', async () => {
+    GetConfigMock.mockResolvedValue(CONFIG)
+    useUiStore.setState({
+      update: { current: '1.4.0', latest: '', available: false, url: 'https://x', error: 'API 403' },
+    })
+    render(<Settings />)
+    expect(await screen.findByText(/Could not check for updates: API 403/)).toBeInTheDocument()
+    expect(screen.queryByText(/up to date/)).toBeNull()
   })
 
   it('edits the large-file threshold and backup retention number fields', async () => {
