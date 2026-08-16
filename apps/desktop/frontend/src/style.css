@@ -24,6 +24,15 @@
   --glass-shadow-2: 0 16px 40px rgb(0 0 0 / 0.14);
   --glass-ring: rgb(255 255 255 / 0.30);
   --aurora-alpha: 0.35;
+  /* Per-module hues (CleanMyMac-style module identity). Consumed through the
+     --module indirection var set inline per screen/tile. */
+  --color-module-care: #a06bfa;
+  --color-module-cleanup: #30d158;
+  --color-module-apps: #0a84ff;
+  --color-module-perf: #ff9f0a;
+  --color-module-clutter: #40c8e0;
+  --color-module-lens: #bf5af2;
+  --color-module-backups: #ff375f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,6 +69,24 @@
 
 @utility nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Soft colored halo for a module's circular CTA / active rail tile.
+   Reads the hue from the --module indirection var. */
+@utility module-glow {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--module) 35%, transparent),
+    0 0 48px color-mix(in srgb, var(--module) 38%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+/* Hero wash behind a module screen: one large tinted radial from the top. */
+@utility module-wash {
+  background: radial-gradient(
+    80% 55% at 50% 0%,
+    color-mix(in srgb, var(--module) 20%, transparent),
+    transparent 72%
+  );
 }
 
 @media (prefers-reduced-transparency: reduce) {

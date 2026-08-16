@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, X } from 'lucide-react';
 import CategoryCard from '../components/CategoryCard';
 import EmptyState from '../components/EmptyState';
+import { ModuleHero } from '../components/ModuleHero';
+import { MODULES } from '../lib/modules';
 import { ScanLens } from '../components/ScanLens';
 import { ActionBar } from '../components/ActionBar';
 import { Button } from '../components/ui/button';
@@ -34,6 +36,7 @@ export function groupCategories(
 export default function SmartScan() {
   const status = useScanStore((s) => s.status);
   const progress = useScanStore((s) => s.progress);
+  const scanIds = useScanStore((s) => s.scanIds);
   const categories = useScanStore((s) => s.categories);
   const results = useScanStore((s) => s.results);
   const itemCounts = useScanStore((s) => s.itemCounts);
@@ -58,14 +61,19 @@ export default function SmartScan() {
 
   // ---- Hero state ----
   if (status === 'idle') {
+    const cleanup = MODULES.find((m) => m.view === 'smart-scan')!;
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-6">
-        <h1 className="text-3xl font-bold text-ink">App Cleaner</h1>
-        <p className="text-sm text-ink-2">
-          Find caches, logs, and leftover junk taking up space on your Mac.
-        </p>
-        <ScanLens state="idle" onScan={() => void useScanStore.getState().startScan()} />
-      </div>
+      <ModuleHero
+        module={cleanup}
+        cta={
+          <ScanLens
+            state="idle"
+            hue={cleanup.hue}
+            label="Scan"
+            onScan={() => void useScanStore.getState().startScan()}
+          />
+        }
+      />
     );
   }
 
@@ -75,6 +83,7 @@ export default function SmartScan() {
       <div className="flex h-full flex-col items-center gap-6 overflow-y-auto px-8 py-8">
         <ScanLens
           state="scanning"
+          hue="var(--color-module-cleanup)"
           completed={progress.completed}
           total={progress.total}
           totalSize={totalSize}
@@ -92,7 +101,7 @@ export default function SmartScan() {
           </Button>
         </div>
         <div className="w-full max-w-xl flex-1 space-y-1">
-          {categories.map((c) => {
+          {(scanIds.length > 0 ? categories.filter((c) => scanIds.includes(c.id)) : categories).map((c) => {
             const r = results[c.id];
             return (
               <div

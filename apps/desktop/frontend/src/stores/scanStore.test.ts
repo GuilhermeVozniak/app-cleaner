@@ -164,3 +164,20 @@ describe('selection state parity with file-picker selection logic', () => {
     expect(s.selected['downloads']).toEqual(new Set(['/test2/file2.txt']));
   });
 });
+
+describe('startScan scanIds', () => {
+  it('records the requested category ids and sizes progress.total to them', async () => {
+    useScanStore.setState({ categories: [cat('trash', 'safe'), cat('downloads', 'risky')] });
+    await useScanStore.getState().startScan(['trash']);
+    let s = useScanStore.getState();
+    expect(s.status).toBe('scanning');
+    expect(s.scanIds).toEqual(['trash']);
+    expect(s.progress).toEqual({ completed: 0, total: 1 });
+
+    // a full scan resets scanIds to [] (= all categories)
+    await useScanStore.getState().startScan();
+    s = useScanStore.getState();
+    expect(s.scanIds).toEqual([]);
+    expect(s.progress.total).toBe(2);
+  });
+});

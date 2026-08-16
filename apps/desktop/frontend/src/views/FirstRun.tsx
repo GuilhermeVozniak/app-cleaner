@@ -19,7 +19,7 @@ export default function FirstRun() {
 
   // Granted while on this screen -> continue automatically.
   useEffect(() => {
-    if (fda === true) setView('smart-scan');
+    if (fda === true) setView('dashboard');
   }, [fda, setView]);
 
   return (
@@ -54,7 +54,7 @@ export default function FirstRun() {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setView('smart-scan')}
+            onClick={() => setView('dashboard')}
             className="h-auto px-2 py-2 text-ink-2 hover:bg-transparent hover:text-ink"
           >
             Continue without

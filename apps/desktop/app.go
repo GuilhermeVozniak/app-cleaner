@@ -7,15 +7,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/backup"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/config"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/core"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/fda"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/grouping"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/loginitems"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/maintenance"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/scanners"
+	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/spacelens"
 	"github.com/GuilhermeVozniak/app-cleaner/packages/engine/uninstall"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -42,6 +46,7 @@ type App struct {
 	backupMgr    *backup.Manager
 	home         string
 	iconCacheDir string
+	stats        ActivityStats
 
 	// runner/elevator back every maintenance call (RunMaintenance,
 	// StartTMSnapshotsClear) and GetAppIcon. Injectable fields (rather than
@@ -78,6 +83,7 @@ func (a *App) startup(ctx context.Context) {
 	a.home = home
 	a.cfg = config.Load(config.DefaultPath(home))
 	a.backupMgr = backup.NewManager(home)
+	a.stats = loadStats(statsPath(home))
 	// Icon cache for GetAppIcon (uninstall.AppIcon stores converted PNGs here).
 	a.iconCacheDir = filepath.Join(os.TempDir(), "appcleaner-icons")
 	_ = os.MkdirAll(a.iconCacheDir, 0o755)
@@ -183,6 +189,8 @@ func (a *App) runScan(ctx context.Context, ids []core.CategoryID, cfg config.Con
 	for _, res := range summary.Results {
 		a.lastScan[res.Category.ID] = res
 	}
+	a.stats.ScanRuns++
+	a.persistStatsLocked()
 	a.mu.Unlock()
 
 	wruntime.EventsEmit(a.ctx, "scan:done", map[string]any{
@@ -431,6 +439,13 @@ func (a *App) runClean(ctx context.Context, resolved map[core.CategoryID][]core.
 		summary.TotalErrors += len(res.Errors)
 	}
 
+	if !opts.DryRun {
+		a.mu.Lock()
+		a.stats = recordClean(a.stats, summary.TotalFreedSpace, summary.TotalCleanedItems, time.Now())
+		a.persistStatsLocked()
+		a.mu.Unlock()
+	}
+
 	// Contract: notBackedUp is a TOP-LEVEL sibling of summary in clean:done.
 	wruntime.EventsEmit(a.ctx, "clean:done", map[string]any{
 		"summary":     summary,
@@ -519,6 +534,13 @@ func (a *App) runUninstall(apps []uninstall.AppInfo, dryRun bool) {
 		})
 	if sum.Errors == nil {
 		sum.Errors = []string{}
+	}
+	if !dryRun && sum.Uninstalled > 0 {
+		a.mu.Lock()
+		a.stats.AppsUninstalled += sum.Uninstalled
+		a.stats.TotalCleanedBytes += sum.FreedSpace
+		a.persistStatsLocked()
+		a.mu.Unlock()
 	}
 	wruntime.EventsEmit(a.ctx, "uninstall:done", map[string]any{
 		"uninstalled": sum.Uninstalled,
@@ -668,6 +690,52 @@ func (a *App) GetBackupDetails(path string) backup.Details {
 
 func (a *App) DeleteBackup(path string) error {
 	return a.backupMgr.Delete(path)
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard, Space Lens & Login Items
+// ---------------------------------------------------------------------------
+
+// persistStatsLocked writes a.stats to disk. Caller must hold a.mu. Write
+// failures are ignored: stats are best-effort telemetry for the dashboard.
+func (a *App) persistStatsLocked() {
+	_ = saveStats(a.stats, statsPath(a.home))
+}
+
+// GetDiskUsage reports the boot volume's capacity for the health card.
+func (a *App) GetDiskUsage() DiskUsage {
+	return readDiskUsage("/")
+}
+
+// GetActivityStats returns the lifetime cleaning tally.
+func (a *App) GetActivityStats() ActivityStats {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.stats
+}
+
+// BuildSpaceLens walks root (must be inside the home directory or /Volumes)
+// and returns its size map, 2 levels deep. Synchronous: Wails runs each
+// call on its own goroutine, so a long walk never blocks the UI thread —
+// the frontend just awaits the promise.
+func (a *App) BuildSpaceLens(root string) (spacelens.Node, error) {
+	if root == "" {
+		root = a.home
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return spacelens.Node{}, fmt.Errorf("invalid path: %w", err)
+	}
+	allowed := abs == a.home || strings.HasPrefix(abs, a.home+"/") || strings.HasPrefix(abs, "/Volumes/")
+	if !allowed {
+		return spacelens.Node{}, errors.New("path must be inside your home folder or /Volumes")
+	}
+	return spacelens.Build(a.ctx, abs, 2), nil
+}
+
+// ListLoginItems lists launchd agents/daemons from the standard locations.
+func (a *App) ListLoginItems() []loginitems.Item {
+	return loginitems.List(loginitems.StandardDirs(a.home))
 }
 
 func (a *App) CheckFDA() *bool {

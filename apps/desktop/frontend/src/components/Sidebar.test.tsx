@@ -4,50 +4,66 @@ import Sidebar from './Sidebar'
 import { useUiStore } from '../stores/uiStore'
 
 beforeEach(() => {
-  useUiStore.setState({ view: 'smart-scan', activeCategoryId: undefined, fda: null, config: undefined })
+  useUiStore.setState({ view: 'dashboard', activeCategoryId: undefined, fda: null, config: undefined })
 })
 
-describe('<Sidebar />', () => {
-  it('renders every nav item', () => {
+describe('<Sidebar /> (icon rail)', () => {
+  it('renders a tile for every module plus Settings', () => {
     render(<Sidebar />)
-    for (const label of ['Smart Scan', 'Uninstaller', 'Maintenance', 'Backups', 'Settings']) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+    for (const label of [
+      'Smart Care',
+      'Cleanup',
+      'Applications',
+      'Performance',
+      'Space Lens',
+      'My Tools',
+      'Backups',
+      'Settings',
+    ]) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
   })
 
-  it('treats the category detail view as part of Smart Scan for highlighting', () => {
+  it('marks the active module tile with aria-current', () => {
+    useUiStore.setState({ view: 'smart-scan' })
+    render(<Sidebar />)
+    expect(screen.getByRole('button', { name: 'Cleanup' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Smart Care' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('treats the category detail view as part of Cleanup for highlighting', () => {
     useUiStore.setState({ view: 'category', activeCategoryId: 'trash' })
     render(<Sidebar />)
-    const btn = screen.getByText('Smart Scan').closest('button')!
-    expect(btn.className).toContain('bg-accent/15')
+    expect(screen.getByRole('button', { name: 'Cleanup' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('does not highlight Smart Scan for an unrelated view', () => {
-    useUiStore.setState({ view: 'settings' })
+  it('treats the login-items view as part of Performance for highlighting', () => {
+    useUiStore.setState({ view: 'login-items' })
     render(<Sidebar />)
-    const btn = screen.getByText('Smart Scan').closest('button')!
-    expect(btn.className).not.toContain('bg-accent/15')
+    expect(screen.getByRole('button', { name: 'Performance' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('clicking a nav item calls setView', () => {
+  it('clicking a tile calls setView', () => {
     render(<Sidebar />)
-    fireEvent.click(screen.getByText('Settings'))
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     expect(useUiStore.getState().view).toBe('settings')
+    fireEvent.click(screen.getByRole('button', { name: 'My Tools' }))
+    expect(useUiStore.getState().view).toBe('my-tools')
   })
 
-  it('shows the "Limited disk access" badge when fda is false, and routes to first-run on click', () => {
+  it('shows the limited-disk-access tile when fda is false, and routes to first-run on click', () => {
     useUiStore.setState({ fda: false })
     render(<Sidebar />)
-    fireEvent.click(screen.getByText('Limited disk access'))
+    fireEvent.click(screen.getByRole('button', { name: 'Limited disk access' }))
     expect(useUiStore.getState().view).toBe('first-run')
   })
 
-  it('hides the disk-access badge when fda is true or unknown', () => {
+  it('hides the disk-access tile when fda is true or unknown', () => {
     useUiStore.setState({ fda: true })
     const { rerender } = render(<Sidebar />)
-    expect(screen.queryByText('Limited disk access')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Limited disk access' })).toBeNull()
     useUiStore.setState({ fda: null })
     rerender(<Sidebar />)
-    expect(screen.queryByText('Limited disk access')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Limited disk access' })).toBeNull()
   })
 })
