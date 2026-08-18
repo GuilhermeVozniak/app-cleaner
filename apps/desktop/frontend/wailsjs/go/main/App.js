@@ -38,6 +38,18 @@ export function DeleteBackup(arg1) {
   return window['go']['main']['App']['DeleteBackup'](arg1);
 }
 
+export function DownloadUpdate(arg1) {
+  return window['go']['main']['App']['DownloadUpdate'](arg1);
+}
+
+export function InstallUpdate() {
+  return window['go']['main']['App']['InstallUpdate']();
+}
+
+export function OpenDownloadedUpdate() {
+  return window['go']['main']['App']['OpenDownloadedUpdate']();
+}
+
 export function GetActivityStats() {
   return window['go']['main']['App']['GetActivityStats']();
 }

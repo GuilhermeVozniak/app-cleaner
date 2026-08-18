@@ -1,22 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
+vi.mock('../../wailsjs/runtime/runtime', () => ({ EventsOn: vi.fn().mockReturnValue(() => {}), EventsOff: vi.fn() }))
 vi.mock('../../wailsjs/go/main/App', () => ({
   GetConfig: vi.fn(),
   SaveConfig: vi.fn(),
   CheckFDA: vi.fn().mockResolvedValue(null),
   CheckForUpdate: vi.fn().mockResolvedValue(null),
   GetVersion: vi.fn().mockResolvedValue('1.4.0'),
-  OpenReleasePage: vi.fn().mockResolvedValue(undefined),
+  DownloadUpdate: vi.fn(),
+  InstallUpdate: vi.fn(),
+  OpenDownloadedUpdate: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { GetConfig, SaveConfig, OpenReleasePage } from '../../wailsjs/go/main/App'
+import { GetConfig, SaveConfig, DownloadUpdate, InstallUpdate, OpenDownloadedUpdate } from '../../wailsjs/go/main/App'
+import { EventsOn } from '../../wailsjs/runtime/runtime'
 import { Settings } from './Settings'
 import { useUiStore } from '../stores/uiStore'
 import type { Config } from '../lib/types'
 
 const GetConfigMock = GetConfig as unknown as ReturnType<typeof vi.fn>
 const SaveConfigMock = SaveConfig as unknown as ReturnType<typeof vi.fn>
+const DownloadUpdateMock = DownloadUpdate as unknown as ReturnType<typeof vi.fn>
+const InstallUpdateMock = InstallUpdate as unknown as ReturnType<typeof vi.fn>
+const EventsOnMock = EventsOn as unknown as ReturnType<typeof vi.fn>
 
 const CONFIG: Config = {
   downloadsDaysOld: 30,
@@ -33,6 +40,10 @@ beforeEach(() => {
   useUiStore.setState({ config: undefined, update: undefined })
   GetConfigMock.mockReset()
   SaveConfigMock.mockReset()
+  DownloadUpdateMock.mockReset()
+  InstallUpdateMock.mockReset()
+  EventsOnMock.mockClear()
+  EventsOnMock.mockReturnValue(() => {})
 })
 
 describe('<Settings />', () => {
@@ -124,15 +135,70 @@ describe('<Settings />', () => {
     expect(screen.queryByRole('button', { name: 'Get update' })).toBeNull()
   })
 
-  it('offers Get update when a newer version is available and opens the release page', async () => {
+  it('Update now downloads with progress, installs, and reports relaunch', async () => {
     GetConfigMock.mockResolvedValue(CONFIG)
     useUiStore.setState({
       update: { current: '1.4.0', latest: '2.0.0', available: true, url: 'https://x' },
     })
+    let resolveDownload: (v: string) => void = () => {}
+    DownloadUpdateMock.mockImplementation(() => new Promise<string>((r) => (resolveDownload = r)))
+    let resolveInstall: () => void = () => {}
+    InstallUpdateMock.mockImplementation(() => new Promise<void>((r) => (resolveInstall = r)))
+
     render(<Settings />)
     expect(await screen.findByText(/New version 2\.0\.0 available/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Get update' }))
-    expect(OpenReleasePage).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Update now' }))
+
+    // progress events stream in while the download promise is pending
+    expect(DownloadUpdateMock).toHaveBeenCalledWith('2.0.0')
+    const progressCall = EventsOnMock.mock.calls.find((c: unknown[]) => c[0] === 'update:progress')
+    expect(progressCall).toBeDefined()
+    const emit = progressCall![1] as (p: { done: number; total: number }) => void
+    act(() => emit({ done: 50, total: 200 }))
+    expect(await screen.findByText(/Downloading… 25%/)).toBeInTheDocument()
+
+    await act(async () => {
+      resolveDownload('/tmp/u.dmg')
+    })
+    expect(await screen.findByText('Installing…')).toBeInTheDocument()
+    await act(async () => {
+      resolveInstall()
+    })
+    // InstallUpdate only resolves without quitting if something odd happened;
+    // normal success quits the app, so no further assertion on success UI.
+    expect(InstallUpdateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the manual fallback when the install fails', async () => {
+    GetConfigMock.mockResolvedValue(CONFIG)
+    useUiStore.setState({
+      update: { current: '1.4.0', latest: '2.0.0', available: true, url: 'https://x' },
+    })
+    DownloadUpdateMock.mockResolvedValue('/tmp/u.dmg')
+    InstallUpdateMock.mockRejectedValue(new Error('app is running translocated'))
+
+    render(<Settings />)
+    await screen.findByText(/New version 2\.0\.0 available/)
+    fireEvent.click(screen.getByRole('button', { name: 'Update now' }))
+
+    expect(await screen.findByText(/Couldn't install automatically/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open downloaded update' }))
+    expect(OpenDownloadedUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a download error and recovers to Update now', async () => {
+    GetConfigMock.mockResolvedValue(CONFIG)
+    useUiStore.setState({
+      update: { current: '1.4.0', latest: '2.0.0', available: true, url: 'https://x' },
+    })
+    DownloadUpdateMock.mockRejectedValue(new Error('download returned 404'))
+
+    render(<Settings />)
+    await screen.findByText(/New version 2\.0\.0 available/)
+    fireEvent.click(screen.getByRole('button', { name: 'Update now' }))
+
+    expect(await screen.findByText(/Update failed:.*404/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Update now' })).toBeInTheDocument()
   })
 
   it('surfaces a failed update check without claiming up-to-date', async () => {
