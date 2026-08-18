@@ -55,6 +55,10 @@ type App struct {
 	// dscacheutil/purge/tmutil binaries.
 	runner   maintenance.Runner
 	elevator maintenance.Elevator
+
+	// updateDmgPath is set by DownloadUpdate and consumed by InstallUpdate /
+	// OpenDownloadedUpdate (selfupdate.go). Guarded by mu.
+	updateDmgPath string
 }
 
 // CleanOptions is the options payload for StartClean.

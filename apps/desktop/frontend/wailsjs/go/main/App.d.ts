@@ -28,6 +28,12 @@ export function CopyPath(arg1:string):Promise<void>;
 
 export function DeleteBackup(arg1:string):Promise<void>;
 
+export function DownloadUpdate(arg1:string):Promise<string>;
+
+export function InstallUpdate():Promise<void>;
+
+export function OpenDownloadedUpdate():Promise<void>;
+
 export function GetActivityStats():Promise<main.ActivityStats>;
 
 export function GetAppIcon(arg1:string):Promise<string>;

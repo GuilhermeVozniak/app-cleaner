@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { GetVersion, OpenReleasePage } from '../../wailsjs/go/main/App'
+import { DownloadUpdate, GetVersion, InstallUpdate, OpenDownloadedUpdate } from '../../wailsjs/go/main/App'
+import { EventsOn } from '../../wailsjs/runtime/runtime'
 import { useUiStore } from '../stores/uiStore'
 import { toForm, fromForm } from '../lib/settings'
 import type { SettingsForm } from '../lib/settings'
@@ -8,11 +9,19 @@ import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
 
-/** Software-update card: current version, latest check result, release link. */
+type UpdatePhase =
+  | { step: 'idle' }
+  | { step: 'downloading'; percent: number | null }
+  | { step: 'installing' }
+  | { step: 'install-failed'; error: string }
+  | { step: 'download-failed'; error: string }
+
+/** Software-update card: check, then download + install in place. */
 function UpdateCard() {
   const update = useUiStore((s) => s.update)
   const [version, setVersion] = useState('')
   const [checking, setChecking] = useState(false)
+  const [phase, setPhase] = useState<UpdatePhase>({ step: 'idle' })
 
   useEffect(() => {
     GetVersion()
@@ -25,6 +34,31 @@ function UpdateCard() {
     await useUiStore.getState().checkUpdate()
     setChecking(false)
   }
+
+  const updateNow = async () => {
+    if (!update?.latest) return
+    setPhase({ step: 'downloading', percent: null })
+    const off = EventsOn('update:progress', (p: { done: number; total: number }) => {
+      setPhase({ step: 'downloading', percent: p.total > 0 ? Math.round((p.done / p.total) * 100) : null })
+    })
+    try {
+      await DownloadUpdate(update.latest)
+    } catch (e) {
+      off()
+      setPhase({ step: 'download-failed', error: String(e) })
+      return
+    }
+    off()
+    setPhase({ step: 'installing' })
+    try {
+      await InstallUpdate()
+      // Success quits + relaunches the app; nothing left to render.
+    } catch (e) {
+      setPhase({ step: 'install-failed', error: String(e) })
+    }
+  }
+
+  const busy = phase.step === 'downloading' || phase.step === 'installing'
 
   return (
     <Card className="mt-4 p-5">
@@ -42,14 +76,37 @@ function UpdateCard() {
           {update?.error ? (
             <p className="mt-1 text-xs text-moderate">Could not check for updates: {update.error}</p>
           ) : null}
+          {phase.step === 'downloading' ? (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="h-1.5 w-40 overflow-hidden rounded-full bg-surface-solid/60">
+                <div
+                  className="h-full rounded-full bg-accent transition-[width]"
+                  style={{ width: `${phase.percent ?? 0}%` }}
+                />
+              </div>
+              <span className="text-xs text-ink-2">
+                {phase.percent === null ? 'Downloading…' : `Downloading… ${phase.percent}%`}
+              </span>
+            </div>
+          ) : phase.step === 'installing' ? (
+            <p className="mt-2 text-xs text-ink-2">Installing…</p>
+          ) : phase.step === 'install-failed' ? (
+            <p className="mt-2 text-xs text-moderate">Couldn't install automatically: {phase.error}</p>
+          ) : phase.step === 'download-failed' ? (
+            <p className="mt-2 text-xs text-moderate">Update failed: {phase.error}</p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {update?.available ? (
-            <Button type="button" variant="primary" onClick={() => void OpenReleasePage()}>
-              Get update
+          {phase.step === 'install-failed' ? (
+            <Button type="button" variant="primary" onClick={() => void OpenDownloadedUpdate()}>
+              Open downloaded update
+            </Button>
+          ) : update?.available && !busy ? (
+            <Button type="button" variant="primary" onClick={() => void updateNow()}>
+              Update now
             </Button>
           ) : null}
-          <Button type="button" variant="glass" disabled={checking} onClick={() => void check()}>
+          <Button type="button" variant="glass" disabled={checking || busy} onClick={() => void check()}>
             {checking ? 'Checking…' : 'Check for updates'}
           </Button>
         </div>
