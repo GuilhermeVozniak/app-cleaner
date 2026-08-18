@@ -329,6 +329,55 @@ func TestListNewestFirstWithRecursiveSize(t *testing.T) {
 	}
 }
 
+func TestDeleteRemovesReadOnlyEntries(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root; permission bits are ignored")
+	}
+	home := t.TempDir()
+	m := NewManager(home)
+	// A backed-up .app bundle: bundles routinely carry read-only directories,
+	// and unlinkat needs write permission on the PARENT dir, so a bare
+	// os.RemoveAll fails with EACCES and leaves the session half-deleted.
+	session := filepath.Join(m.Root, "2026-01-01T00-00-00Z")
+	contents := filepath.Join(session, "HOME", "Library", "Caches", "Tool.app", "Contents")
+	writeFile(t, filepath.Join(contents, "CodeResources"), "x")
+	if err := os.Chmod(contents, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(contents, 0o755) }) // let t.TempDir clean up on failure
+	if err := m.Delete(session); err != nil {
+		t.Fatalf("Delete must clear read-only dirs before removing: %v", err)
+	}
+	if _, err := os.Stat(session); !os.IsNotExist(err) {
+		t.Fatal("session not removed")
+	}
+}
+
+func TestCleanOldRemovesReadOnlyEntries(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root; permission bits are ignored")
+	}
+	home := t.TempDir()
+	m := NewManager(home)
+	session := filepath.Join(m.Root, "2026-01-01T00-00-00Z")
+	contents := filepath.Join(session, "HOME", "Library", "Caches", "Tool.app", "Contents")
+	writeFile(t, filepath.Join(contents, "CodeResources"), "x")
+	if err := os.Chmod(contents, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(contents, 0o755) })
+	tOld := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(session, tOld, tOld); err != nil {
+		t.Fatal(err)
+	}
+	if removed := m.CleanOld(1); removed != 1 {
+		t.Fatalf("CleanOld = %d, want 1 (read-only dirs must not block expiry)", removed)
+	}
+	if _, err := os.Stat(session); !os.IsNotExist(err) {
+		t.Fatal("expired session not removed")
+	}
+}
+
 func TestDeleteValidatesContainment(t *testing.T) {
 	home := t.TempDir()
 	m := NewManager(home)

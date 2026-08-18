@@ -9,11 +9,13 @@ import { Card } from '../components/ui/card'
 import type { BackupDetails, BackupInfo } from '../lib/types'
 
 type Pending = { action: 'restore' | 'delete'; path: string } | null
+type Busy = { action: 'restore' | 'delete'; path: string } | null
 
 export function Backups() {
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState<Pending>(null)
+  const [busy, setBusy] = useState<Busy>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [removed, setRemoved] = useState(0)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -46,20 +48,29 @@ export function Backups() {
     if (!pending) return
     const { action, path } = pending
     setPending(null)
-    if (action === 'restore') {
-      const r = await RestoreBackup(path)
-      setMessage(
-        r.failed > 0
-          ? `Restored ${r.restored} item(s), ${r.failed} failed: ${r.errors[0] ?? ''}`
-          : `Restored ${r.restored} item(s)`,
-      )
-    } else {
-      try {
-        await DeleteBackup(path)
-        setMessage('Backup deleted')
-      } catch (e) {
-        setMessage(`Delete failed: ${String(e)}`)
+    setBusy({ action, path })
+    try {
+      if (action === 'restore') {
+        try {
+          const r = await RestoreBackup(path)
+          setMessage(
+            r.failed > 0
+              ? `Restored ${r.restored} item(s), ${r.failed} failed: ${r.errors[0] ?? ''}`
+              : `Restored ${r.restored} item(s)`,
+          )
+        } catch (e) {
+          setMessage(`Restore failed: ${String(e)}`)
+        }
+      } else {
+        try {
+          await DeleteBackup(path)
+          setMessage('Backup deleted')
+        } catch (e) {
+          setMessage(`Delete failed: ${String(e)}`)
+        }
       }
+    } finally {
+      setBusy(null)
     }
     void refresh()
   }
@@ -121,7 +132,12 @@ export function Backups() {
                   </Button>
                   <span className="flex-1 text-sm font-medium text-ink">{new Date(b.date).toLocaleString()}</span>
                   <span className="nums text-sm text-ink-2">{formatSize(b.size)}</span>
-                  {pending?.path === b.path ? (
+                  {busy?.path === b.path ? (
+                    <span className="flex items-center gap-2 text-sm text-ink-2">
+                      <span className="inline-block size-3 animate-spin rounded-full border-[1.5px] border-ink-2/40 border-t-ink" aria-hidden />
+                      {busy.action === 'restore' ? 'Restoring…' : 'Deleting…'}
+                    </span>
+                  ) : pending?.path === b.path ? (
                     <span className="flex items-center gap-2 text-sm text-ink">
                       {pending.action === 'restore' ? 'Restore this backup?' : 'Delete this backup permanently?'}
                       <Button type="button" variant="glass" size="sm" onClick={() => void execute()}>

@@ -270,7 +270,7 @@ func (m *Manager) CleanOld(retentionDays int) int {
 			continue
 		}
 		if st.ModTime().Before(cutoff) {
-			if err := os.RemoveAll(p); err == nil {
+			if err := forceRemoveAll(p); err == nil {
 				removed++
 			}
 		}
@@ -284,7 +284,30 @@ func (m *Manager) Delete(sessionDir string) error {
 	if err != nil {
 		return err
 	}
-	return os.RemoveAll(sd)
+	return forceRemoveAll(sd)
+}
+
+// forceRemoveAll removes root like os.RemoveAll, but tolerates read-only
+// directories inside the tree. Backed-up .app bundles routinely contain
+// 0o555 directories, and unlink requires write permission on the PARENT
+// dir — so a bare RemoveAll fails with EACCES and leaves the session
+// half-deleted. On failure it walks the tree restoring u+wx on every
+// directory, then retries once.
+func forceRemoveAll(root string) error {
+	err := os.RemoveAll(root)
+	if err == nil {
+		return nil
+	}
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, werr error) error {
+		if werr != nil || !d.IsDir() {
+			return nil // unreadable entries: the retry below reports the real error
+		}
+		if st, serr := os.Stat(path); serr == nil {
+			_ = os.Chmod(path, st.Mode().Perm()|0o300)
+		}
+		return nil
+	})
+	return os.RemoveAll(root)
 }
 
 // detailsCap bounds the legacy fallback listing; the manifest path is uncapped
