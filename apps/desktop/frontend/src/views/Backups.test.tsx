@@ -14,11 +14,12 @@ vi.mock('../../wailsjs/go/main/App', () => ({
   CheckFDA: vi.fn().mockResolvedValue(null),
 }))
 
-import { ListBackups, GetBackupDetails } from '../../wailsjs/go/main/App'
+import { ListBackups, GetBackupDetails, DeleteBackup } from '../../wailsjs/go/main/App'
 import Backups from './Backups'
 
 const ListBackupsMock = ListBackups as unknown as ReturnType<typeof vi.fn>
 const DetailsMock = GetBackupDetails as unknown as ReturnType<typeof vi.fn>
+const DeleteMock = DeleteBackup as unknown as ReturnType<typeof vi.fn>
 
 const session = { path: '/Users/me/Library/Application Support/AppCleaner/Backups/2026-07-18T00-00-00Z', date: '2026-07-18T00:00:00Z', size: 1024 }
 
@@ -27,8 +28,32 @@ beforeEach(() => {
   ListBackupsMock.mockResolvedValue([session])
   DetailsMock.mockReset()
   DetailsMock.mockResolvedValue({ items: [], fromManifest: false, truncated: 0 })
+  DeleteMock.mockReset()
+  DeleteMock.mockResolvedValue(undefined)
 })
 afterEach(() => cleanup())
+
+describe('<Backups /> delete', () => {
+  it('shows a busy indicator while the delete is in flight', async () => {
+    let resolveDelete: () => void = () => {}
+    DeleteMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve
+        }),
+    )
+    render(<Backups />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    // While the backend call is pending the row must show progress,
+    // not silently return to idle Restore/Delete buttons.
+    expect(await screen.findByText('Deleting…')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+    expect(DeleteMock).toHaveBeenCalledWith(session.path)
+    resolveDelete()
+    expect(await screen.findByText('Backup deleted')).toBeDefined()
+  })
+})
 
 describe('<Backups /> details', () => {
   it('expanding a session fetches details once and renders contracted paths with sizes', async () => {
