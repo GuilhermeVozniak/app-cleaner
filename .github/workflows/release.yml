@@ -38,6 +38,12 @@ jobs:
     env:
       # secrets are not readable in step-level `if:`; surface presence here.
       HAS_MACOS_SIGNING: ${{ secrets.MACOS_CERT_P12 != '' }}
+    # Consumed by bump-homebrew-tap. cli_sha256 stays empty when no CLI
+    # tarball was built, which is how that job knows to leave the formula alone.
+    outputs:
+      version: ${{ steps.checksums.outputs.version }}
+      dmg_sha256: ${{ steps.checksums.outputs.dmg_sha256 }}
+      cli_sha256: ${{ steps.checksums.outputs.cli_sha256 }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -121,8 +127,91 @@ jobs:
         run: |
           cd apps/cli/bin
           tar -czf "app-cleaner-cli_${GITHUB_REF_NAME#v}_darwin_universal.tar.gz" app-cleaner
+      - name: Checksum release assets (for the Homebrew tap bump)
+        id: checksums
+        run: |
+          CLI_SHA256=""
+          if compgen -G "apps/cli/bin/*.tar.gz" > /dev/null; then
+            CLI_SHA256="$(shasum -a 256 apps/cli/bin/*.tar.gz | awk '{print $1}')"
+          fi
+          {
+            echo "version=${GITHUB_REF_NAME#v}"
+            echo "dmg_sha256=$(shasum -a 256 apps/desktop/build/bin/*.dmg | awk '{print $1}')"
+            echo "cli_sha256=$CLI_SHA256"
+          } >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             apps/desktop/build/bin/*.dmg
             apps/cli/bin/*.tar.gz
+
+  # Point the Homebrew tap (GuilhermeVozniak/homebrew-tap) at the assets that
+  # were just published so `brew install --cask GuilhermeVozniak/tap/app-cleaner`
+  # and `brew install GuilhermeVozniak/tap/app-cleaner-cli` resolve to the new
+  # version. Pushing to the tap needs HOMEBREW_TAP_TOKEN (README, "Release
+  # flow"); without it the tap files are still audited but the push is skipped
+  # with a warning.
+  bump-homebrew-tap:
+    name: Bump Homebrew tap
+    needs: build-release
+    if: needs.build-release.outputs.dmg_sha256 != ''
+    runs-on: macos-latest
+    env:
+      HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      HOMEBREW_NO_ENV_HINTS: "1"
+      TAP: guilhermevozniak/tap
+      VERSION: ${{ needs.build-release.outputs.version }}
+      DMG_SHA256: ${{ needs.build-release.outputs.dmg_sha256 }}
+      CLI_SHA256: ${{ needs.build-release.outputs.cli_sha256 }}
+    steps:
+      - name: Tap guilhermevozniak/tap
+        run: brew tap "$TAP"
+
+      - name: Rewrite version and sha256 in Casks/app-cleaner.rb
+        run: |
+          CASK="$(brew --repository "$TAP")/Casks/app-cleaner.rb"
+          sed -i '' -E "s|^  version \".*\"$|  version \"$VERSION\"|" "$CASK"
+          sed -i '' -E "s|^  sha256 \".*\"$|  sha256 \"$DMG_SHA256\"|" "$CASK"
+          grep -q "^  version \"$VERSION\"" "$CASK"
+          grep -q "^  sha256 \"$DMG_SHA256\"" "$CASK"
+
+      - name: Rewrite url and sha256 in Formula/app-cleaner-cli.rb
+        if: env.CLI_SHA256 != ''
+        run: |
+          FORMULA="$(brew --repository "$TAP")/Formula/app-cleaner-cli.rb"
+          sed -i '' -E "s|/download/v[0-9.]+/app-cleaner-cli_[0-9.]+_|/download/v${VERSION}/app-cleaner-cli_${VERSION}_|" "$FORMULA"
+          sed -i '' -E "s|^  sha256 \".*\"$|  sha256 \"$CLI_SHA256\"|" "$FORMULA"
+          grep -q "/download/v${VERSION}/app-cleaner-cli_${VERSION}_darwin_universal.tar.gz" "$FORMULA"
+          grep -q "^  sha256 \"$CLI_SHA256\"" "$FORMULA"
+
+      - name: Show tap diff
+        run: git -C "$(brew --repository "$TAP")" --no-pager diff
+
+      # `brew fetch` downloads each asset from the release and verifies its
+      # sha256, so a wrong asset name or checksum fails here, not on users.
+      - name: Audit and fetch the updated cask and formula
+        run: |
+          brew audit --cask "$TAP/app-cleaner"
+          brew fetch --cask "$TAP/app-cleaner"
+          if [ -n "$CLI_SHA256" ]; then
+            brew audit --formula "$TAP/app-cleaner-cli"
+            brew fetch --formula "$TAP/app-cleaner-cli"
+          fi
+
+      - name: Push to the tap
+        if: env.HAS_TAP_TOKEN == 'true'
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          cd "$(brew --repository "$TAP")"
+          if git diff --quiet; then echo "tap already at $VERSION; nothing to push"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "app-cleaner $VERSION"
+          git push "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/GuilhermeVozniak/homebrew-tap.git" HEAD:main
+
+      - name: Warn that the tap was not bumped
+        if: env.HAS_TAP_TOKEN != 'true'
+        run: echo "::warning::HOMEBREW_TAP_TOKEN is not set; homebrew-tap was not bumped to $VERSION. Add the secret (README, Release flow) or edit Casks/app-cleaner.rb and Formula/app-cleaner-cli.rb by hand."

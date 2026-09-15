@@ -10,6 +10,18 @@ A monorepo restructure of [mac-cleaner-cli](https://github.com/guhcostan/mac-cle
 with full feature parity, splitting the original desktop-only port into one shared engine
 reused by both a GUI and a TUI.
 
+## Install
+
+```sh
+brew install --cask GuilhermeVozniak/tap/app-cleaner   # desktop app
+brew install GuilhermeVozniak/tap/app-cleaner-cli      # terminal CLI
+```
+
+Or grab the `.dmg` / CLI tarball from the
+[latest release](https://github.com/GuilhermeVozniak/app-cleaner/releases/latest).
+Requires macOS 11 (Big Sur) or newer. The desktop app updates itself in place, so the
+cask is marked `auto_updates` and `brew upgrade` only touches it with `--greedy`.
+
 ## Monorepo layout
 
 ```
@@ -70,7 +82,7 @@ How it behaves:
 
 ## Terminal CLI
 
-- **`apps/cli`** — terminal CLI, full parity with the desktop app. See [`apps/cli/README.md`](apps/cli/README.md) for the command reference and keymap. Install via a release tarball or `git clone && task build:cli`.
+- **`apps/cli`** — terminal CLI, full parity with the desktop app. See [`apps/cli/README.md`](apps/cli/README.md) for the command reference and keymap. Install via `brew install GuilhermeVozniak/tap/app-cleaner-cli`, a release tarball, or `git clone && task build:cli`.
 
 ## Prerequisites
 
@@ -113,6 +125,31 @@ signed universal tarball for the CLI, and uploads both to the GitHub release. As
 follow `packages/shared`'s contract — `app-cleaner_<version>_darwin_universal.dmg` and
 `app-cleaner-cli_<version>_darwin_universal.tar.gz`. Run `task release:prep` locally
 before tagging.
+
+A final `bump-homebrew-tap` job then rewrites `Casks/app-cleaner.rb` and
+`Formula/app-cleaner-cli.rb` in [GuilhermeVozniak/homebrew-tap](https://github.com/GuilhermeVozniak/homebrew-tap)
+with the new version and checksums, runs `brew audit` and `brew fetch` on both (so the
+checksums are verified against the real assets), and pushes to the tap's `main`. Pushing
+to another repository is beyond the default `GITHUB_TOKEN`, so it needs one extra secret:
+
+1. GitHub › Settings › Developer settings › Personal access tokens › Fine-grained tokens
+   → Generate new token.
+2. Repository access: **Only select repositories** → `homebrew-tap`.
+   Permissions: **Contents → Read and write**. Nothing else.
+3. Save it as the `HOMEBREW_TAP_TOKEN` secret on *this* repository.
+
+Without the secret the job still audits the tap files but skips the push and emits a
+warning on the run. Bump by hand in that case:
+
+```sh
+brew tap GuilhermeVozniak/tap
+cd "$(brew --repository guilhermevozniak/tap)"
+# Casks/app-cleaner.rb: version + sha256 of the .dmg
+# Formula/app-cleaner-cli.rb: version in the url + sha256 of the .tar.gz
+brew audit --cask guilhermevozniak/tap/app-cleaner && brew fetch --cask guilhermevozniak/tap/app-cleaner
+brew audit --formula guilhermevozniak/tap/app-cleaner-cli && brew fetch --formula guilhermevozniak/tap/app-cleaner-cli
+git commit -am "app-cleaner <version>" && git push
+```
 
 ## Further reading
 
