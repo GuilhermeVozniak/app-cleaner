@@ -7,8 +7,10 @@ import { useUiStore } from '../stores/uiStore';
 import { Tooltip } from './ui/tooltip';
 
 /**
- * Icon-only module rail (64px). Smart Care sits alone at the top, the four
- * modules below it, My Tools + Backups and Settings in a bottom cluster.
+ * Icon-only module rail (92px, the width of the macOS traffic-light cluster
+ * plus its margins, so the divider falls clear of the green button and the
+ * tiles sit centred under the lights). Smart Care sits alone at the top, the
+ * four modules below it, My Tools + Backups and Settings in a bottom cluster.
  * The active tile is a filled rounded square with a halo in its module's hue;
  * labels live in tooltips. Top padding clears the traffic lights.
  */
@@ -67,7 +69,7 @@ export default function Sidebar() {
     });
 
   return (
-    <aside className="relative z-20 flex w-16 shrink-0 flex-col items-center gap-1.5 border-r border-hairline pb-3 pt-[52px]">
+    <aside className="relative z-20 flex w-[92px] shrink-0 flex-col items-center gap-1.5 border-r border-hairline pb-3 pt-[52px]">
       {renderModule(care)}
       <Hairline />
       {main.map(renderModule)}
