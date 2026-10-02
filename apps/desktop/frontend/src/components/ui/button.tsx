@@ -4,19 +4,25 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/cn'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-control text-sm font-medium transition-[background,box-shadow,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
+  'focus-ring inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-control text-body font-semibold transition-[background-color,box-shadow,transform,opacity,filter] duration-150 disabled:pointer-events-none disabled:opacity-40',
   {
     variants: {
       variant: {
-        primary: 'bg-accent text-white shadow-sm hover:brightness-110 active:scale-[0.98]',
-        destructive: 'bg-danger text-white shadow-sm hover:brightness-110 active:scale-[0.98]',
-        ghost: 'text-ink hover:bg-hairline',
-        glass: 'glass-1 text-ink hover:brightness-105 active:scale-[0.98]',
+        /** Solid white — the one action that moves the flow forward. */
+        primary: 'bg-white text-ink-inverse shadow-[0_1px_2px_rgb(0_0_0/0.25)] hover:bg-[#ebe7ff] active:scale-[0.98]',
+        /** Translucent white — review, cancel, secondary paths. */
+        secondary: 'bg-fill text-ink hover:bg-fill-hover active:scale-[0.98]',
+        glass: 'bg-fill text-ink hover:bg-fill-hover active:scale-[0.98]',
+        ghost: 'text-ink-2 hover:bg-glass-1 hover:text-ink',
+        destructive: 'bg-danger text-white hover:brightness-110 active:scale-[0.98]',
+        /** Filled with the current module hue. */
+        module:
+          'bg-[var(--module)] text-white shadow-[0_6px_20px_color-mix(in_srgb,var(--module)_40%,transparent)] hover:brightness-110 active:scale-[0.98]',
       },
       size: {
-        sm: 'h-7 px-2.5 text-xs',
+        sm: 'h-7 px-3 text-caption',
         md: 'h-9 px-4',
-        lg: 'h-11 px-6 text-base font-semibold',
+        lg: 'h-11 px-6 text-card',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },

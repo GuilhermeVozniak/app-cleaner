@@ -108,7 +108,7 @@ describe('risky group in results state', () => {
 
   it('footer shows the selected totals and enables Clean', () => {
     render(<SmartScan />);
-    expect(screen.getByText('1 items · 10 B selected')).toBeInTheDocument();
+    expect(screen.getByText('1 item selected, 10 B')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clean' })).toBeEnabled();
   });
 
@@ -162,7 +162,7 @@ describe('done state with zero items selected', () => {
 
   it('renders the Clean button disabled when no items are selected', () => {
     render(<SmartScan />);
-    expect(screen.getByText('0 items · 0 B selected')).toBeInTheDocument();
+    expect(screen.getByText('0 items selected, 0 B')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clean' })).toBeDisabled();
   });
 });

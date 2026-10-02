@@ -3,11 +3,12 @@ import { AlertTriangle, ChevronDown, ChevronRight, X } from 'lucide-react';
 import CategoryCard from '../components/CategoryCard';
 import EmptyState from '../components/EmptyState';
 import { ModuleHero } from '../components/ModuleHero';
-import { MODULES } from '../lib/modules';
+import { ModuleIcon } from '../components/ModuleIcon';
 import { ScanLens } from '../components/ScanLens';
-import { ActionBar } from '../components/ActionBar';
+import { StartOver } from '../components/StartOver';
+import { StateMark } from '../components/Stage';
 import { Button } from '../components/ui/button';
-import { Card } from '../components/ui/card';
+import { MODULES } from '../lib/modules';
 import { formatSize } from '../lib/format';
 import type { Category } from '../lib/types';
 import { useCleanStore } from '../stores/cleanStore';
@@ -33,6 +34,8 @@ export function groupCategories(
   return out;
 }
 
+const plural = (n: number, one: string) => (n === 1 ? one : `${one}s`);
+
 export default function SmartScan() {
   const status = useScanStore((s) => s.status);
   const progress = useScanStore((s) => s.progress);
@@ -49,6 +52,7 @@ export default function SmartScan() {
   const [riskyExpanded, setRiskyExpanded] = useState<boolean | null>(null);
   const riskyOpen = riskyExpanded ?? config?.showRisky ?? false;
   const [errorDismissed, setErrorDismissed] = useState(false);
+  const cleanup = MODULES.find((m) => m.view === 'smart-scan')!;
 
   useEffect(() => {
     void useScanStore.getState().loadCategories();
@@ -59,75 +63,83 @@ export default function SmartScan() {
     if (status === 'scanning') setErrorDismissed(false);
   }, [status]);
 
-  // ---- Hero state ----
+  const startScan = () => void useScanStore.getState().startScan();
+  const startOver = () => useScanStore.getState().reset();
+
+  // ---- Hero ----
   if (status === 'idle') {
-    const cleanup = MODULES.find((m) => m.view === 'smart-scan')!;
     return (
       <ModuleHero
         module={cleanup}
-        cta={
-          <ScanLens
-            state="idle"
-            hue={cleanup.hue}
-            label="Scan"
-            onScan={() => void useScanStore.getState().startScan()}
-          />
-        }
+        cta={<ScanLens state="idle" hue={cleanup.hue} label="Scan" onScan={startScan} />}
       />
     );
   }
 
-  // ---- Scanning state ----
+  // ---- Scanning ----
   if (status === 'scanning') {
+    const list = scanIds.length > 0 ? categories.filter((c) => scanIds.includes(c.id)) : categories;
     return (
-      <div className="flex h-full flex-col items-center gap-6 overflow-y-auto px-8 py-8">
-        <ScanLens
-          state="scanning"
-          hue="var(--color-module-cleanup)"
-          completed={progress.completed}
-          total={progress.total}
-          totalSize={totalSize}
-          onScan={() => {}}
-        />
-        <div className="flex w-full max-w-xl items-center">
-          <Button
-            type="button"
-            variant="glass"
-            size="sm"
-            onClick={() => useScanStore.getState().cancelScan()}
-            className="ml-auto"
-          >
-            Cancel
-          </Button>
+      <div className="materialize flex h-full flex-col items-center px-10 pb-2 pt-3">
+        <ModuleIcon Icon={cleanup.Icon} size="xl" />
+        <h1 className="mt-5 text-headline font-semibold text-ink">Looking for junk…</h1>
+        <p className="nums mt-1.5 text-card text-ink-2">{formatSize(totalSize)} found so far</p>
+        <div className="glass-1 mt-5 w-full max-w-2xl min-h-0 flex-1 overflow-y-auto rounded-card px-5 py-1">
+          <ul className="divide-y divide-hairline">
+            {list.map((c) => {
+              const r = results[c.id];
+              return (
+                <li key={c.id} className="flex items-center gap-3 py-2.5">
+                  <span className="min-w-0 flex-1 truncate text-body font-medium text-ink">{c.name}</span>
+                  {r ? (
+                    <span className="nums shrink-0 text-body text-ink-2">
+                      {itemCounts[c.id] ?? 0} {plural(itemCounts[c.id] ?? 0, 'item')}, {formatSize(r.totalSize)}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-body text-ink-3">pending…</span>
+                  )}
+                  <StateMark state={r ? 'done' : 'pending'} />
+                </li>
+              );
+            })}
+          </ul>
         </div>
-        <div className="w-full max-w-xl flex-1 space-y-1">
-          {(scanIds.length > 0 ? categories.filter((c) => scanIds.includes(c.id)) : categories).map((c) => {
-            const r = results[c.id];
-            return (
-              <div
-                key={c.id}
-                className="glass-1 flex items-center gap-2 rounded-control px-3 py-1.5 text-sm"
-              >
-                <span className="min-w-0 flex-1 truncate text-ink">{c.name}</span>
-                {r ? (
-                  <span className="nums shrink-0 text-ink-2">
-                    {itemCounts[c.id] ?? 0} items · {formatSize(r.totalSize)}
-                  </span>
-                ) : (
-                  <span className="shrink-0 text-ink-2">pending…</span>
-                )}
-              </div>
-            );
-          })}
+        <div className="pt-4">
+          <ScanLens
+            state="scanning"
+            hue={cleanup.hue}
+            completed={progress.completed}
+            total={progress.total}
+            totalSize={totalSize}
+            onScan={() => {}}
+            onStop={() => useScanStore.getState().cancelScan()}
+            caption={
+              <span className="text-ink">
+                {progress.completed}/{progress.total}
+              </span>
+            }
+          />
         </div>
       </div>
     );
   }
 
-  // ---- Results state (status === 'done') ----
+  // ---- Results (status === 'done') ----
   if (totalSize === 0) {
     return (
-      <EmptyState title="Your Mac is already clean!" subtitle="Nothing to remove was found." />
+      <>
+        <StartOver onClick={startOver} />
+        <EmptyState
+          icon={cleanup.Icon}
+          title="Your Mac is already clean!"
+          subtitle="Nothing to remove was found."
+          action={
+            <Button type="button" variant="secondary" onClick={startScan}>
+              Scan again
+            </Button>
+          }
+        />
+      </>
     );
   }
 
@@ -135,12 +147,14 @@ export default function SmartScan() {
     const r = results[c.id];
     return !!r && ((r.items?.length ?? 0) > 0 || !!r.error);
   };
-  const maxSize = Math.max(0, ...Object.values(results).map((r) => r.totalSize));
   const groups = groupCategories(categories)
     .map((g) => ({ ...g, categories: g.categories.filter(hasContent) }))
     .filter((g) => g.categories.length > 0);
   const riskyCats = categories.filter((c) => c.safetyLevel === 'risky').filter(hasContent);
   const totals = selectionTotals(results, selected);
+  const sizeOf = (cats: Category[]) => cats.reduce((n, c) => n + (results[c.id]?.totalSize ?? 0), 0);
+  const totalItems = Object.values(itemCounts).reduce((n, c) => n + c, 0);
+  const categoryCount = groups.reduce((n, g) => n + g.categories.length, 0) + riskyCats.length;
 
   const toggle = (id: string) => useScanStore.getState().toggleCategory(id);
   const openCategory = (id: string) => useUiStore.getState().setView('category', id);
@@ -151,71 +165,93 @@ export default function SmartScan() {
       result={results[c.id]}
       itemCount={itemCounts[c.id] ?? results[c.id].items?.length ?? 0}
       selected={isCategorySelected(selected[c.id])}
-      maxSize={maxSize}
       onToggle={() => toggle(c.id)}
       onOpen={() => openCategory(c.id)}
     />
   );
 
   return (
-    <div className="animate-[materialize_220ms_var(--ease-glass)] flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+    <div className="materialize flex h-full flex-col">
+      <StartOver onClick={startOver} />
+      <div className="min-h-0 flex-1 overflow-y-auto px-10 pb-4 pt-3">
         {scanError && !errorDismissed && (
-          <div className="glass-1 mb-3 flex items-start gap-2 rounded-control px-3 py-2 text-xs text-moderate">
+          <div className="glass-1 mx-auto mb-4 flex max-w-5xl items-start gap-2 rounded-control px-3 py-2 text-caption text-moderate">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span className="min-w-0 flex-1">{scanError}</span>
             <button
               type="button"
               aria-label="Dismiss scan error"
               onClick={() => setErrorDismissed(true)}
-              className="shrink-0 rounded p-0.5 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="focus-ring shrink-0 rounded p-0.5 hover:bg-fill"
             >
               <X size={14} />
             </button>
           </div>
         )}
-        {scanCancelled && (
-          <div className="mb-3 text-xs text-ink-2">Scan cancelled — partial results</div>
-        )}
-        <div className="mb-4 text-lg font-semibold text-ink">
-          Found {formatSize(totalSize)} that can be cleaned
+        <div className="text-center">
+          <h1 className="text-headline font-semibold text-ink">
+            We've found {formatSize(totalSize)} you can clean
+          </h1>
+          <p className="nums mt-1.5 text-card text-ink-2">
+            {totalItems} {plural(totalItems, 'item')} in {categoryCount} {plural(categoryCount, 'category').replace('categorys', 'categories')}. Safe items are already selected.
+          </p>
+          {scanCancelled && (
+            <p className="mt-1.5 text-caption text-moderate">Scan cancelled — partial results</p>
+          )}
         </div>
-        {groups.map((g) => (
-          <section key={g.group} className="mb-5">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-2">
-              {g.group}
-            </h2>
-            <Card className="space-y-2 p-3">{g.categories.map(renderCard)}</Card>
-          </section>
-        ))}
+
+        <div className="mx-auto mt-6 grid max-w-5xl grid-cols-2 gap-4 lg:grid-cols-3">
+          {groups.map((g) => (
+            <section key={g.group} className="glass-1 flex flex-col rounded-card">
+              <header className="flex items-baseline justify-between gap-3 px-5 pb-1 pt-4">
+                <h2 className="text-card font-semibold text-ink">{g.group}</h2>
+                <span className="nums text-caption text-ink-2">{formatSize(sizeOf(g.categories))}</span>
+              </header>
+              <ul className="divide-y divide-hairline px-2 pb-2">{g.categories.map(renderCard)}</ul>
+            </section>
+          ))}
+        </div>
+
         {riskyCats.length > 0 && (
-          <section className="mb-5">
+          <section className="glass-1 mx-auto mt-4 max-w-5xl rounded-card">
             <button
               type="button"
               onClick={() => setRiskyExpanded(!riskyOpen)}
-              className="mb-2 flex items-center gap-1 rounded text-xs font-semibold uppercase tracking-wide text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              aria-expanded={riskyOpen}
+              className="focus-ring flex w-full items-center gap-2 rounded-card px-5 py-4 text-left"
             >
-              {riskyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              Risky ({riskyCats.length})
+              {riskyOpen ? (
+                <ChevronDown size={16} className="text-ink-2" />
+              ) : (
+                <ChevronRight size={16} className="text-ink-2" />
+              )}
+              <span className="text-card font-semibold text-ink">Risky ({riskyCats.length})</span>
+              <span className="text-body text-ink-2">
+                Review these before cleaning. They are never selected for you.
+              </span>
+              <span className="nums ml-auto text-caption text-ink-2">{formatSize(sizeOf(riskyCats))}</span>
             </button>
-            {riskyOpen && <Card className="space-y-2 p-3">{riskyCats.map(renderCard)}</Card>}
+            {riskyOpen && (
+              <ul className="divide-y divide-hairline border-t border-hairline px-2 pb-2">
+                {riskyCats.map(renderCard)}
+              </ul>
+            )}
           </section>
         )}
       </div>
-      <ActionBar>
-        <span className="nums text-sm text-ink-2">
-          {totals.items} items · {formatSize(totals.size)} selected
+
+      <div className="flex flex-col items-center gap-2 pb-2 pt-1">
+        <span className="nums text-caption text-ink-2">
+          {totals.items} {plural(totals.items, 'item')} selected, {formatSize(totals.size)}
         </span>
-        <Button
-          type="button"
-          variant="primary"
+        <ScanLens
+          state="idle"
+          hue={cleanup.hue}
+          label="Clean"
           disabled={totals.items === 0}
-          onClick={() => useCleanStore.getState().openConfirm()}
-          className="ml-auto"
-        >
-          Clean
-        </Button>
-      </ActionBar>
+          onScan={() => useCleanStore.getState().openConfirm()}
+        />
+      </div>
     </div>
   );
 }

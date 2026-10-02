@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import { useScanStore } from '../stores/scanStore'
 import { useCleanStore } from '../stores/cleanStore'
 import { useUiStore } from '../stores/uiStore'
 import { formatSize } from '../lib/format'
+import { Stage } from './Stage'
+import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
@@ -59,10 +62,10 @@ export function defaultBackupEnabled(backupByDefault: boolean, categories: Categ
   )
 }
 
-const safetyColors: Record<Category['safetyLevel'], string> = {
-  safe: 'text-safe',
-  moderate: 'text-moderate',
-  risky: 'text-risky',
+const SAFETY_LABELS: Record<Category['safetyLevel'], string> = {
+  safe: 'Safe',
+  moderate: 'Moderate',
+  risky: 'Risky',
 }
 
 export function ConfirmModal() {
@@ -88,47 +91,53 @@ export function ConfirmModal() {
   return (
     <Dialog open>
       <DialogContent
-        className="w-[480px] max-h-[80vh]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        <DialogTitle className="text-lg font-semibold">Confirm clean</DialogTitle>
-        <p className="mt-1 text-sm text-ink-2">
-          {stats.itemCount} item{stats.itemCount === 1 ? '' : 's'} —{' '}
-          <span className="font-medium">{formatSize(stats.totalSize)}</span> will be freed
-        </p>
+        <Stage
+          Icon={Sparkles}
+          title={<DialogTitle>Confirm clean</DialogTitle>}
+          subtitle={
+            <>
+              {stats.itemCount} item{stats.itemCount === 1 ? '' : 's'}, {formatSize(stats.totalSize)} will be freed
+            </>
+          }
+          footer={
+            <>
+              <Button type="button" variant="secondary" onClick={() => useCleanStore.getState().reset()}>
+                Cancel
+              </Button>
+              <Button type="button" variant="primary" disabled={stats.itemCount === 0} onClick={onClean}>
+                Clean
+              </Button>
+            </>
+          }
+        >
+          <ul className="max-h-[228px] divide-y divide-hairline overflow-y-auto pr-2">
+            {stats.categories.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+                <span className="text-card font-semibold text-ink">{c.name}</span>
+                {c.safetyLevel !== 'safe' && (
+                  <Badge variant={c.safetyLevel}>{SAFETY_LABELS[c.safetyLevel]}</Badge>
+                )}
+                {c.safetyLevel === 'risky' && c.safetyNote ? (
+                  <span className="basis-full text-caption text-risky">{c.safetyNote}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
 
-        <ul className="mt-4 space-y-2">
-          {stats.categories.map((c) => (
-            <li key={c.id} className="text-sm">
-              <span className="font-medium">{c.name}</span>{' '}
-              <span className={safetyColors[c.safetyLevel]}>({c.safetyLevel})</span>
-              {c.safetyLevel === 'risky' && c.safetyNote ? (
-                <p className="mt-0.5 text-xs text-risky">{c.safetyNote}</p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-5 space-y-2">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={backup} onCheckedChange={(v) => setBackup(v === true)} />
-            Back up items before deleting (Undo)
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={dryRun} onCheckedChange={(v) => setDryRun(v === true)} />
-            Dry run (preview only, nothing is deleted)
-          </label>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="ghost" onClick={() => useCleanStore.getState().reset()}>
-            Cancel
-          </Button>
-          <Button type="button" variant="primary" disabled={stats.itemCount === 0} onClick={onClean}>
-            Clean
-          </Button>
-        </div>
+          <div className="mt-6 space-y-3">
+            <label className="flex items-center gap-3 text-body text-ink">
+              <Checkbox checked={backup} onCheckedChange={(v) => setBackup(v === true)} />
+              Back up items before deleting (Undo)
+            </label>
+            <label className="flex items-center gap-3 text-body text-ink">
+              <Checkbox checked={dryRun} onCheckedChange={(v) => setDryRun(v === true)} />
+              Dry run (preview only, nothing is deleted)
+            </label>
+          </div>
+        </Stage>
       </DialogContent>
     </Dialog>
   )

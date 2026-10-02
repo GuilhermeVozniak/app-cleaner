@@ -10,6 +10,22 @@ wails doctor       # verify the toolchain
 wails dev          # live-reload development
 ```
 
+### UI work without the Go side
+
+The frontend can run in a plain browser against a fake Wails bridge:
+
+```bash
+cd frontend && bun run dev
+open "http://localhost:5173/?mock&view=dashboard"
+```
+
+`?mock` installs `src/dev/mock.ts` (realistic data, timed scan/clean/uninstall
+events). `&view=<view>` picks the first screen; `&flow=scan|category|confirm|
+clean|uninstall|uninstalling` drives a flow to that state; `&fda=0`, `&empty=1`
+and `&update=1` flip fixtures. The mock is only imported in dev builds. See
+`docs/superpowers/specs/2026-10-02-cmm-style-ui-revamp-design.md` for the
+design system.
+
 ## Build
 
 ```bash

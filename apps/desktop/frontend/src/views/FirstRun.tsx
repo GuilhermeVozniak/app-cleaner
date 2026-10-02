@@ -1,10 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { HardDrive, Mail, ShieldCheck, Trash2 } from 'lucide-react';
 import { OpenFDASettings } from '../../wailsjs/go/main/App';
 import { useUiStore } from '../stores/uiStore';
+import { ModuleIcon } from '../components/ModuleIcon';
 import { Button } from '../components/ui/button';
-import { Card } from '../components/ui/card';
 
+const LOCATIONS = [
+  { Icon: Trash2, label: 'Trash' },
+  { Icon: HardDrive, label: 'Safari cache' },
+  { Icon: Mail, label: 'Mail attachments' },
+];
+
+/**
+ * First-run gate: a full-height hero in the Smart Care hue asking for Full
+ * Disk Access. The shell paints the canvas and title strip; there is no rail.
+ */
 export default function FirstRun() {
   const fda = useUiStore((s) => s.fda);
   const setView = useUiStore((s) => s.setView);
@@ -23,48 +33,50 @@ export default function FirstRun() {
   }, [fda, setView]);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center px-10">
-      <Card className="flex max-w-md flex-col items-center gap-6 p-8 text-center">
-        <ShieldCheck size={56} className="text-accent" />
-        <h1 className="text-2xl font-bold text-ink">
-          Grant Full Disk Access
-        </h1>
-        <p className="text-sm text-ink-2">
-          App Cleaner needs Full Disk Access to scan everything it can clean. Without it, some
-          locations cannot be read:
-        </p>
-        <ul className="flex gap-6 text-sm text-ink">
-          <li className="flex items-center gap-2">
-            <Trash2 size={16} /> Trash
-          </li>
-          <li className="flex items-center gap-2">
-            <HardDrive size={16} /> Safari cache
-          </li>
-          <li className="flex items-center gap-2">
-            <Mail size={16} /> Mail attachments
-          </li>
-        </ul>
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="primary" onClick={() => OpenFDASettings()}>
-            Open System Settings
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => void refreshFda()}>
-            Re-check
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setView('dashboard')}
-            className="h-auto px-2 py-2 text-ink-2 hover:bg-transparent hover:text-ink"
-          >
-            Continue without
-          </Button>
+    <div
+      className="relative flex h-full flex-col overflow-hidden"
+      style={{ '--module': 'var(--color-module-care)' } as CSSProperties}
+    >
+      <div className="materialize flex flex-1 items-center justify-center gap-20 px-16 pb-16">
+        <ModuleIcon Icon={ShieldCheck} size="hero" hue="var(--color-module-care)" />
+        <div className="max-w-[26rem]">
+          <h1 className="text-display font-normal text-ink">Grant Full Disk Access</h1>
+          <p className="mt-3 text-card text-ink-2">
+            App Cleaner needs Full Disk Access to scan everything it can clean. Without it, some
+            locations cannot be read:
+          </p>
+          <ul className="mt-7 space-y-4">
+            {LOCATIONS.map(({ Icon, label }) => (
+              <li key={label} className="flex items-center gap-3 text-card font-semibold text-ink">
+                <ModuleIcon Icon={Icon} size="sm" />
+                {label}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-8 flex items-center gap-3">
+            <Button type="button" variant="primary" onClick={() => OpenFDASettings()}>
+              Open System Settings
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => void refreshFda()}>
+              Re-check
+            </Button>
+          </div>
+          <div className="mt-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setView('dashboard')}
+              className="-ml-2 px-2 text-ink-3 hover:bg-transparent hover:text-ink"
+            >
+              Continue without
+            </Button>
+          </div>
+          <p className="mt-5 text-caption text-ink-2">
+            System Settings, then Privacy &amp; Security, then Full Disk Access: enable App Cleaner and
+            come back here.
+          </p>
         </div>
-        <p className="text-xs text-ink-2">
-          System Settings → Privacy &amp; Security → Full Disk Access → enable App Cleaner, then
-          return here.
-        </p>
-      </Card>
+      </div>
     </div>
   );
 }

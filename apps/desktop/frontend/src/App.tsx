@@ -2,6 +2,7 @@ import { useEffect, type CSSProperties } from 'react';
 import { CheckFDA } from '../wailsjs/go/main/App';
 import { Backdrop } from './components/Backdrop';
 import Sidebar from './components/Sidebar';
+import { TitleBar } from './components/TitleBar';
 import FirstRun from './views/FirstRun';
 import Dashboard from './views/Dashboard';
 import SmartScan from './views/SmartScan';
@@ -14,10 +15,18 @@ import MyTools from './views/MyTools';
 import SpaceLens from './views/SpaceLens';
 import LoginItems from './views/LoginItems';
 import { CleanFlow } from './components/CleanFlow';
+import { MODULES, identityForView } from './lib/modules';
 import { useUiStore } from './stores/uiStore';
 
 function App() {
   const view = useUiStore((s) => s.view);
+  const identity = view === 'first-run' ? MODULES[0] : identityForView(view);
+
+  // Dialogs and tooltips portal to <body>, outside the shell's --module scope,
+  // so the current module hue is mirrored onto the document root as well.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--module', identity.hue);
+  }, [identity.hue]);
 
   useEffect(() => {
     void useUiStore.getState().loadConfig();
@@ -34,25 +43,22 @@ function App() {
 
   if (view === 'first-run') {
     return (
-      <div className="h-full bg-surface-solid">
-        <div
-          className="fixed inset-x-0 top-0 h-7 z-20"
-          style={{ '--wails-draggable': 'drag' } as CSSProperties}
-        />
-        <FirstRun />
+      <div className="relative h-full text-ink" style={{ '--module': MODULES[0].hue } as CSSProperties}>
+        <Backdrop canvas={MODULES[0].canvas} />
+        <TitleBar title="" />
+        <div className="relative z-10 h-full">
+          <FirstRun />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full text-ink">
-      <Backdrop />
-      <div
-        className="fixed inset-x-0 top-0 h-7 z-20"
-        style={{ '--wails-draggable': 'drag' } as CSSProperties}
-      />
+    <div className="flex h-full text-ink" style={{ '--module': identity.hue } as CSSProperties}>
+      <Backdrop canvas={identity.canvas} />
+      <TitleBar title={identity.label} />
       <Sidebar />
-      <main className="relative z-10 min-w-0 flex-1 overflow-y-auto">
+      <main className="relative z-10 min-w-0 flex-1 overflow-y-auto pt-11">
         {view === 'dashboard' && <Dashboard />}
         {view === 'smart-scan' && <SmartScan />}
         {view === 'category' && <CategoryDetail />}
