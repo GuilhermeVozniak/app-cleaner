@@ -22,7 +22,7 @@ export function StartOver({
       type="button"
       onClick={onClick}
       style={{ '--wails-draggable': 'no-drag' } as CSSProperties}
-      className="focus-ring fixed left-[84px] top-1.5 z-[35] flex h-8 items-center gap-1.5 rounded-control px-2 text-body font-medium text-ink-2 transition-colors hover:bg-glass-1 hover:text-ink"
+      className="focus-ring fixed left-[108px] top-1.5 z-[35] flex h-8 items-center gap-1.5 rounded-control px-2 text-body font-medium text-ink-2 transition-colors hover:bg-glass-1 hover:text-ink"
     >
       <Icon size={14} strokeWidth={2.25} />
       {label}
