@@ -6,7 +6,13 @@ app, driven from a keyboard-only TUI or scriptable flags.
 
 ## Install
 
-**Download a release tarball** (recommended):
+**Homebrew** (recommended):
+```
+brew install GuilhermeVozniak/tap/app-cleaner-cli
+app-cleaner --version
+```
+
+**Download a release tarball**:
 ```
 curl -LO https://github.com/GuilhermeVozniak/app-cleaner/releases/latest/download/app-cleaner-cli_<version>_darwin_universal.tar.gz
 tar xzf app-cleaner-cli_<version>_darwin_universal.tar.gz
