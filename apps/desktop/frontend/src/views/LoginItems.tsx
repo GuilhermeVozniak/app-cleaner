@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react'
 import { ListLoginItems, RevealInFinder } from '../../wailsjs/go/main/App'
 import EmptyState from '../components/EmptyState'
+import { PageHeader } from '../components/PageHeader'
+import { StartOver } from '../components/StartOver'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Card } from '../components/ui/card'
+import { useUiStore } from '../stores/uiStore'
 import type { LoginItem } from '../lib/types'
 
 const KIND_LABELS: Record<LoginItem['kind'], string> = {
@@ -54,63 +56,67 @@ export default function LoginItems() {
   const groups = groupLoginItems(items ?? [])
 
   return (
-    <div className="flex h-full flex-col p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-ink">Login Items</h1>
-        <Button type="button" variant="glass" size="sm" disabled={loading} onClick={() => void refresh()}>
-          <RefreshCw size={14} />
-          Refresh
-        </Button>
-      </div>
-      <p className="mt-1 text-sm text-ink-2">
-        Everything registered to launch automatically. Items flagged “broken” point to a program that no
-        longer exists — the Cleanup scan can remove orphaned agents safely.
-      </p>
+    <div className="flex h-full flex-col">
+      <StartOver label="Performance" icon={ArrowLeft} onClick={() => useUiStore.getState().setView('maintenance')} />
+      <div className="flex-1 overflow-y-auto px-10 pb-10 pt-6">
+        <div className="materialize mx-auto max-w-4xl">
+          <PageHeader
+            title="Login Items"
+            subtitle="Everything registered to launch automatically. Items flagged broken point to a program that no longer exists; the Cleanup scan can remove orphaned agents safely."
+            aside={
+              <Button type="button" variant="secondary" disabled={loading} onClick={() => void refresh()}>
+                <RefreshCw size={14} strokeWidth={2.25} />
+                Refresh
+              </Button>
+            }
+          />
 
-      {loading && items === null ? (
-        <p className="mt-4 text-sm text-ink-2">Reading launch agents…</p>
-      ) : (items ?? []).length === 0 ? (
-        <EmptyState title="No login items" subtitle="Nothing is set to launch automatically." />
-      ) : (
-        <div className="mt-4 flex-1 space-y-5 overflow-y-auto">
-          {groups.map((g) => (
-            <section key={g.kind}>
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-2">
-                {KIND_LABELS[g.kind]}
-              </h2>
-              <Card className="space-y-1 p-3">
-                {g.items.map((it) => (
-                  <div key={it.path} className="glass-1 flex items-center gap-3 rounded-control px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium text-ink">{it.label}</span>
-                        {it.programMissing ? (
-                          <Badge variant="risky" className="gap-1">
-                            <AlertTriangle size={11} /> broken
-                          </Badge>
-                        ) : null}
-                        {it.runAtLoad ? <Badge variant="neutral">runs at load</Badge> : null}
-                      </div>
-                      {it.program ? (
-                        <div className="truncate font-mono text-xs text-ink-2">{it.program}</div>
-                      ) : null}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => RevealInFinder(it.path)}
-                      className="shrink-0 text-xs text-ink-2"
-                    >
-                      Reveal
-                    </Button>
-                  </div>
-                ))}
-              </Card>
-            </section>
-          ))}
+          {loading && items === null ? (
+            <p className="mt-8 text-body text-ink-2">Reading launch agents…</p>
+          ) : (items ?? []).length === 0 ? (
+            <div className="mt-16">
+              <EmptyState title="No login items" subtitle="Nothing is set to launch automatically." />
+            </div>
+          ) : (
+            <div className="mt-8 space-y-8">
+              {groups.map((g) => (
+                <section key={g.kind}>
+                  <h2 className="mb-3 text-card font-semibold text-ink">{KIND_LABELS[g.kind]}</h2>
+                  <ul className="glass-1 divide-y divide-hairline rounded-card px-4">
+                    {g.items.map((it) => (
+                      <li key={it.path} className="flex items-center gap-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-body font-semibold text-ink">{it.label}</span>
+                            {it.programMissing ? (
+                              <Badge variant="risky">
+                                <AlertTriangle size={11} /> broken
+                              </Badge>
+                            ) : null}
+                            {it.runAtLoad ? <Badge variant="neutral">runs at load</Badge> : null}
+                          </div>
+                          {it.program ? (
+                            <div className="mt-0.5 truncate font-mono text-caption text-ink-2">{it.program}</div>
+                          ) : null}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => RevealInFinder(it.path)}
+                          className="shrink-0"
+                        >
+                          Reveal
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

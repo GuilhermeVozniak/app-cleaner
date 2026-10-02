@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import { ArrowLeft, FileText, Folder, Telescope } from 'lucide-react'
+import { ArrowLeft, FileText, Folder } from 'lucide-react'
 import { BuildSpaceLens } from '../../wailsjs/go/main/App'
 import { ModuleHero } from '../components/ModuleHero'
+import { ModuleIcon } from '../components/ModuleIcon'
 import { ScanLens } from '../components/ScanLens'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -54,22 +55,18 @@ export default function SpaceLens() {
         module={mod}
         cta={
           status === 'building' ? (
-            <div className="flex flex-col items-center gap-3" role="status">
-              <ScanLens state="scanning" hue={mod.hue} completed={0} total={0} totalSize={0} onScan={() => {}} />
-              <span className="text-sm text-ink-2">Measuring your folders…</span>
-            </div>
-          ) : (
             <ScanLens
-              state="idle"
+              state="scanning"
               hue={mod.hue}
-              label="Scan"
-              icon={<Telescope size={28} style={{ color: 'var(--module)' }} />}
-              onScan={() => void build()}
+              caption="Measuring your folders…"
+              onScan={() => {}}
             />
+          ) : (
+            <ScanLens state="idle" hue={mod.hue} label="Scan" onScan={() => void build()} />
           )
         }
       >
-        {status === 'error' ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
+        {status === 'error' ? <p className="mt-6 text-body text-danger">{error}</p> : null}
       </ModuleHero>
     )
   }
@@ -80,7 +77,10 @@ export default function SpaceLens() {
   const maxSize = Math.max(1, ...children.map((c) => c.size))
 
   return (
-    <div className="flex h-full flex-col p-6" style={{ '--module': mod.hue } as CSSProperties}>
+    <div
+      className="materialize mx-auto flex h-full max-w-5xl flex-col px-10 pb-10 pt-6"
+      style={{ '--module': mod.hue } as CSSProperties}
+    >
       <div className="flex items-center gap-3">
         {trail.length > 0 ? (
           <Button
@@ -89,38 +89,44 @@ export default function SpaceLens() {
             variant="ghost"
             size="sm"
             onClick={() => setTrail(trail.slice(0, -1))}
-            className="px-1.5"
+            className="h-9 w-9 px-0"
           >
             <ArrowLeft size={18} />
           </Button>
         ) : null}
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-ink">
+        <h1 className="min-w-0 flex-1 truncate text-title font-semibold text-ink">
           {current ? contractHome(current.path, homeDir()) : ''}
         </h1>
-        <span className="nums shrink-0 text-sm text-ink-2">{formatSize(current?.size ?? 0)}</span>
-        <Button type="button" variant="glass" size="sm" onClick={() => void build()}>
+        <span className="nums shrink-0 text-card text-ink-2">{formatSize(current?.size ?? 0)}</span>
+        <Button type="button" variant="secondary" size="sm" onClick={() => void build()}>
           Rescan
         </Button>
       </div>
 
-      <Card className="mt-4 flex-1 overflow-y-auto p-3">
+      <Card className="mt-5 flex-1 overflow-y-auto">
         {children.length === 0 ? (
-          <p className="p-3 text-sm text-ink-2">Empty folder — nothing to show here.</p>
+          <p className="px-5 py-4 text-body text-ink-2">Empty folder. Nothing to show here.</p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="divide-y divide-hairline">
             {children.map((c) => {
               const row = (
                 <>
                   {c.isDir ? (
-                    <Folder size={16} className="shrink-0" style={{ color: 'var(--module)' }} />
+                    <ModuleIcon Icon={Folder} size="xs" />
                   ) : (
-                    <FileText size={16} className="shrink-0 text-ink-2" />
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center text-ink-2">
+                      <FileText size={16} />
+                    </span>
                   )}
-                  <span className="w-56 shrink-0 truncate text-left text-sm font-medium text-ink">{c.name}</span>
+                  <span className="w-64 shrink-0 truncate text-left text-body font-semibold text-ink">
+                    {c.name}
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <Progress value={(c.size / maxSize) * 100} className="h-1.5" />
+                    <Progress value={(c.size / maxSize) * 100} className="h-1.5 text-[var(--module)]" />
                   </div>
-                  <span className="nums w-20 shrink-0 text-right text-sm text-ink-2">{formatSize(c.size)}</span>
+                  <span className="nums w-24 shrink-0 text-right text-body text-ink-2">
+                    {formatSize(c.size)}
+                  </span>
                 </>
               )
               return (
@@ -129,18 +135,18 @@ export default function SpaceLens() {
                     <button
                       type="button"
                       onClick={() => setTrail([...trail, c.path])}
-                      className="glass-1 flex w-full items-center gap-3 rounded-control px-3 py-2 transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      className="focus-ring flex h-12 w-full items-center gap-4 px-4 text-left transition-colors hover:bg-glass-1"
                     >
                       {row}
                     </button>
                   ) : (
-                    <div className="glass-1 flex items-center gap-3 rounded-control px-3 py-2">{row}</div>
+                    <div className="flex h-12 items-center gap-4 px-4">{row}</div>
                   )}
                 </li>
               )
             })}
             {current?.truncated ? (
-              <li className="px-3 py-1 text-xs text-ink-2">…and {current.truncated} smaller items</li>
+              <li className="px-4 py-2.5 text-caption text-ink-2">…and {current.truncated} smaller items</li>
             ) : null}
           </ul>
         )}

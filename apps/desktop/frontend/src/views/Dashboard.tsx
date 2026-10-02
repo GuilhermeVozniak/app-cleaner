@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
-import type { CSSProperties } from 'react'
-import { ChevronRight, HardDrive, Search, Timer, Trash2 } from 'lucide-react'
+import type { CSSProperties, ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
+import { Activity, Trash2 } from 'lucide-react'
 import { GetActivityStats, GetDiskUsage } from '../../wailsjs/go/main/App'
 import { MODULES } from '../lib/modules'
+import { cn } from '../lib/cn'
 import { formatSize, timeAgo } from '../lib/format'
-import { Card } from '../components/ui/card'
+import { ModuleIcon } from '../components/ModuleIcon'
 import { Progress } from '../components/ui/progress'
 import { ScanLens } from '../components/ScanLens'
 import { useScanStore } from '../stores/scanStore'
+import { useUninstallerStore } from '../stores/uninstallerStore'
 import { useUiStore } from '../stores/uiStore'
 import type { ActivityStats, DiskUsage } from '../lib/types'
 
-/** Health-card copy for the disk bar. Exported for tests. */
+/** Health headline for the disk state. Exported for tests. */
 export function diskHeadline(u: DiskUsage | null): string {
   if (!u || u.total <= 0) return 'Disk usage unavailable'
   const pct = Math.round((u.used / u.total) * 100)
@@ -20,13 +23,61 @@ export function diskHeadline(u: DiskUsage | null): string {
   return 'Your Mac is in great shape'
 }
 
+const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
+
+interface TileProps {
+  label: string
+  hue: string
+  Icon: LucideIcon
+  stat: ReactNode
+  status: ReactNode
+  /** Green status line for "all good" states. */
+  good?: boolean
+  onClick?: () => void
+}
+
+/** Smart Care tile: label top-left, the module's gem bleeding off the top-right corner, the stat and its status bottom-left. */
+function Tile({ label, hue, Icon, stat, status, good, onClick }: TileProps) {
+  const style = { '--module': hue } as CSSProperties
+  const base = 'glass-1 relative flex h-[168px] flex-col overflow-hidden rounded-card p-5 text-left'
+  const body = (
+    <>
+      <ModuleIcon Icon={Icon} size="xl" className="absolute -right-6 -top-7 rotate-6" />
+      <span className="relative text-card text-ink-2">{label}</span>
+      <span className="nums relative mt-auto text-stat font-semibold text-ink">{stat}</span>
+      <span className={cn('relative mt-1 text-body', good ? 'text-safe' : 'text-ink-2')}>{status}</span>
+    </>
+  )
+  if (!onClick) {
+    return (
+      <div style={style} className={base}>
+        {body}
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={style}
+      className={cn(base, 'focus-ring transition-colors duration-150 hover:bg-[rgb(255_255_255/0.12)]')}
+    >
+      {body}
+    </button>
+  )
+}
+
 /**
- * Smart Care dashboard: health card + lifetime stats + module tiles, with
- * the Smart Scan lens as the centerpiece CTA.
+ * Smart Care: one health headline, a grid of module tiles that read out the
+ * current state of each module, and the Smart Scan orb.
  */
 export default function Dashboard() {
   const setView = useUiStore((s) => s.setView)
   const scanStatus = useScanStore((s) => s.status)
+  const scanTotal = useScanStore((s) => s.totalSize)
+  const scanProgress = useScanStore((s) => s.progress)
+  const apps = useUninstallerStore((s) => s.apps)
+  const appsUpdatedAt = useUninstallerStore((s) => s.lastScanAt)
   const [disk, setDisk] = useState<DiskUsage | null>(null)
   const [stats, setStats] = useState<ActivityStats | null>(null)
 
@@ -46,91 +97,115 @@ export default function Dashboard() {
     }
   }
 
-  const usedPct = disk && disk.total > 0 ? Math.min(100, Math.round((disk.used / disk.total) * 100)) : 0
-  const tiles = MODULES.filter((m) => m.view !== 'dashboard')
+  const mod = (view: string) => MODULES.find((m) => m.view === view)!
+  const care = mod('dashboard')
+  const cleanup = mod('smart-scan')
+  const applications = mod('uninstaller')
+  const performance = mod('maintenance')
+  const lens = mod('space-lens')
+
+  const hasDisk = !!disk && disk.total > 0
+  const usedPct = hasDisk ? Math.min(100, Math.round((disk.used / disk.total) * 100)) : 0
+
+  const cleanupTile =
+    scanStatus === 'done'
+      ? scanTotal > 0
+        ? { stat: `${formatSize(scanTotal)} of junk`, status: 'Ready to clean', good: false }
+        : { stat: 'No junk found', status: 'Cleaned', good: true }
+      : scanStatus === 'scanning'
+        ? { stat: 'Scanning…', status: `${scanProgress.completed} of ${scanProgress.total} categories`, good: false }
+        : { stat: 'Find junk', status: 'Not scanned yet', good: false }
+
+  const appsTile =
+    apps.length > 0
+      ? { stat: `${apps.length} ${plural(apps.length, 'app')}`, status: appsUpdatedAt ? `Updated ${timeAgo(appsUpdatedAt)}` : 'Installed on your Mac' }
+      : { stat: 'Manage apps', status: 'Uninstall apps completely' }
+
+  const cleanedItems = stats?.totalCleanedItems ?? 0
+  const cleanRuns = stats?.cleanRuns ?? 0
+  const scanRuns = stats?.scanRuns ?? 0
+  const uninstalled = stats?.appsUninstalled ?? 0
 
   return (
     <div
-      className="module-wash flex h-full flex-col items-center overflow-y-auto px-8 pb-10 pt-12"
-      style={{ '--module': 'var(--color-module-care)' } as CSSProperties}
+      className="materialize flex h-full flex-col px-10 pb-2 pt-4"
+      style={{ '--module': care.hue } as CSSProperties}
     >
-      <h1 className="text-3xl font-bold text-ink">Smart Care</h1>
-      <p className="mt-1 text-sm text-ink-2">Everything that keeps your Mac in shape, in one place.</p>
-
-      <div className="mt-8 grid w-full max-w-3xl gap-3 sm:grid-cols-3">
-        <Card className="p-4 sm:col-span-1">
-          <div className="flex items-center gap-2 text-sm font-medium text-ink">
-            <HardDrive size={15} className="text-[var(--color-module-care)]" />
-            Mac Health
+      <div className="flex flex-col items-center text-center">
+        <h1 className="text-headline font-semibold text-ink">{diskHeadline(disk)}</h1>
+        {hasDisk ? (
+          <div className="mt-3 flex w-72 flex-col items-center gap-2">
+            <Progress value={usedPct} className="h-1 text-white" />
+            <p className="nums text-caption text-ink-2">
+              {formatSize(disk.free)} free of {formatSize(disk.total)}
+            </p>
           </div>
-          <p className="mt-2 text-xs text-ink-2">{diskHeadline(disk)}</p>
-          {disk && disk.total > 0 ? (
-            <>
-              <Progress value={usedPct} className="mt-3 h-1.5" />
-              <p className="nums mt-2 text-xs text-ink-2">
-                {formatSize(disk.free)} free of {formatSize(disk.total)}
-              </p>
-            </>
-          ) : null}
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-ink">
-            <Trash2 size={15} className="text-[var(--color-module-cleanup)]" />
-            Storage Cleaned
-          </div>
-          <p className="nums mt-2 text-2xl font-semibold text-ink">
-            {formatSize(stats?.totalCleanedBytes ?? 0)}
-          </p>
-          <p className="nums mt-1 text-xs text-ink-2">
-            {stats?.totalCleanedItems ?? 0} items · {stats?.cleanRuns ?? 0} clean
-            {(stats?.cleanRuns ?? 0) === 1 ? '' : 's'}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-ink">
-            <Timer size={15} className="text-[var(--color-module-perf)]" />
-            Activity
-          </div>
-          <p className="nums mt-2 text-2xl font-semibold text-ink">{stats?.scanRuns ?? 0} scans</p>
-          <p className="nums mt-1 text-xs text-ink-2">
-            {stats?.appsUninstalled ?? 0} apps uninstalled
-            {stats?.lastCleanAt ? ` · last clean ${timeAgo(stats.lastCleanAt)}` : ''}
-          </p>
-        </Card>
+        ) : (
+          <p className="mt-2 text-caption text-ink-2">Run a scan to see what you can free up.</p>
+        )}
       </div>
 
-      <div className="my-8">
-        <ScanLens
-          state="idle"
-          hue="var(--color-module-care)"
-          label={scanStatus === 'done' ? 'View Results' : 'Smart Scan'}
-          icon={<Search size={28} style={{ color: 'var(--module)' }} />}
-          onScan={startSmartScan}
+      <div className="mx-auto mt-6 grid w-full max-w-5xl grid-cols-3 gap-4">
+        <Tile
+          label={cleanup.label}
+          hue={cleanup.hue}
+          Icon={cleanup.Icon}
+          stat={cleanupTile.stat}
+          status={cleanupTile.status}
+          good={cleanupTile.good}
+          onClick={() => setView('smart-scan')}
+        />
+        <Tile
+          label={applications.label}
+          hue={applications.hue}
+          Icon={applications.Icon}
+          stat={appsTile.stat}
+          status={appsTile.status}
+          onClick={() => setView('uninstaller')}
+        />
+        <Tile
+          label={performance.label}
+          hue={performance.hue}
+          Icon={performance.Icon}
+          stat="3 tasks"
+          status="Maintenance ready to run"
+          onClick={() => setView('maintenance')}
+        />
+        <Tile
+          label={lens.label}
+          hue={lens.hue}
+          Icon={lens.Icon}
+          stat={hasDisk ? `${formatSize(disk.free)} free` : 'Space map'}
+          status="See what takes up space"
+          onClick={() => setView('space-lens')}
+        />
+        <Tile
+          label="Storage cleaned"
+          hue={cleanup.hue}
+          Icon={Trash2}
+          stat={formatSize(stats?.totalCleanedBytes ?? 0)}
+          status={`${cleanedItems} ${plural(cleanedItems, 'item')} in ${cleanRuns} ${plural(cleanRuns, 'clean')}`}
+          good={cleanedItems > 0}
+        />
+        <Tile
+          label="Activity"
+          hue={care.hue}
+          Icon={Activity}
+          stat={`${scanRuns} ${plural(scanRuns, 'scan')}`}
+          status={
+            `${uninstalled} ${plural(uninstalled, 'app')} uninstalled` +
+            (stats?.lastCleanAt ? `, last clean ${timeAgo(stats.lastCleanAt)}` : '')
+          }
         />
       </div>
 
-      <div className="grid w-full max-w-3xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {tiles.map((m) => (
-          <button
-            key={m.view}
-            type="button"
-            onClick={() => setView(m.view)}
-            style={{ '--module': m.hue } as CSSProperties}
-            className="glass-1 group flex items-center gap-3 rounded-card p-4 text-left transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[color-mix(in_srgb,var(--module)_18%,transparent)]"
-              aria-hidden
-            >
-              <m.Icon size={20} style={{ color: 'var(--module)' }} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-ink">{m.label}</span>
-              <span className="block truncate text-xs text-ink-2">{m.description}</span>
-            </span>
-            <ChevronRight size={16} className="shrink-0 text-ink-2 transition group-hover:translate-x-0.5" />
-          </button>
-        ))}
+      <div className="mt-auto flex justify-center pt-4">
+        <ScanLens
+          state="idle"
+          hue={care.hue}
+          label={scanStatus === 'done' ? 'View Results' : 'Smart Scan'}
+          onScan={startSmartScan}
+        />
       </div>
     </div>
   )

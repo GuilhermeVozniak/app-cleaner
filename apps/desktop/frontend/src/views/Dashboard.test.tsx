@@ -66,7 +66,7 @@ describe('<Dashboard />', () => {
     await waitFor(() => expect(screen.getByText('Your Mac is in great shape')).toBeInTheDocument())
     expect(screen.getByText(/free of/)).toHaveTextContent('350.0 GB free of 500.0 GB')
     expect(screen.getByText('2.0 GB')).toBeInTheDocument()
-    expect(screen.getByText(/12 items · 3 cleans/)).toBeInTheDocument()
+    expect(screen.getByText(/12 items in 3 cleans/)).toBeInTheDocument()
     expect(screen.getByText('7 scans')).toBeInTheDocument()
     expect(screen.getByText(/2 apps uninstalled/)).toBeInTheDocument()
   })

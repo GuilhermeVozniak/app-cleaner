@@ -57,7 +57,7 @@ describe('<App />', () => {
     useUiStore.setState({ view: 'maintenance' })
     render(<App />)
     expect(screen.getByRole('complementary')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Maintenance' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Keep your Mac in top shape' })).toBeInTheDocument()
   })
 
   it('switches the main pane to Settings for the settings view', () => {
